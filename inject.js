@@ -314,7 +314,7 @@
           console.log('AutoDiscord: Bấm "Tông Môn" để vào Dược Viên.');
           safeLocalStorage.setItem('garden_status_text', 'Đang vào Tông Môn...');
           tongMonBtn.click();
-          window.lastClickedTime = Date.now();
+          window.lastClickedTime = Date.now() + 2000;
           return true;
         }
       }
@@ -329,7 +329,7 @@
           console.log('AutoDiscord: Đang cooldown, rời Dược Viên về Tông Môn.');
           safeLocalStorage.setItem('garden_status_text', 'Rời Dược Viên (cooldown)...');
           quayLaiBtn.click();
-          window.lastClickedTime = Date.now();
+          window.lastClickedTime = Date.now() + 3000;
           return true;
         }
       } else {
@@ -344,7 +344,7 @@
             safeLocalStorage.setItem('active_garden', 'che_dan');
             safeLocalStorage.setItem('garden_status_text', 'Đang vào Vườn Chế Đan...');
             btn.click();
-            window.lastClickedTime = Date.now();
+            window.lastClickedTime = Date.now() + 2000;
             return true;
           }
         } else if (!luyenHoaDone) {
@@ -354,7 +354,7 @@
             safeLocalStorage.setItem('active_garden', 'luyen_hoa');
             safeLocalStorage.setItem('garden_status_text', 'Đang vào Vườn Luyện Hóa...');
             btn.click();
-            window.lastClickedTime = Date.now();
+            window.lastClickedTime = Date.now() + 2000;
             return true;
           }
         } else if (!quyHiemDone) {
@@ -364,7 +364,7 @@
             safeLocalStorage.setItem('active_garden', 'quy_hiem');
             safeLocalStorage.setItem('garden_status_text', 'Đang vào Vườn Quý Hiếm...');
             btn.click();
-            window.lastClickedTime = Date.now();
+            window.lastClickedTime = Date.now() + 2000;
             return true;
           }
         } else {
@@ -374,7 +374,7 @@
           const quayLaiBtn = buttons.find(b => b.innerText && b.innerText.toLowerCase().includes('quay lại tông môn'));
           if (quayLaiBtn && !quayLaiBtn.disabled) {
             quayLaiBtn.click();
-            window.lastClickedTime = Date.now();
+            window.lastClickedTime = Date.now() + 3000;
             return true;
           }
         }
@@ -391,7 +391,7 @@
         });
         if (quayLaiBtn && !quayLaiBtn.disabled) {
           quayLaiBtn.click();
-          window.lastClickedTime = Date.now();
+          window.lastClickedTime = Date.now() + 3000;
           return true;
         }
       } else {
@@ -410,7 +410,7 @@
           if (quayLaiBtn && !quayLaiBtn.disabled) {
             safeLocalStorage.setItem('garden_status_text', `Vườn ${gardenName}: Đã xong, đang trở ra...`);
             quayLaiBtn.click();
-            window.lastClickedTime = Date.now();
+            window.lastClickedTime = Date.now() + 3000;
             return true;
           }
         } else {
@@ -491,7 +491,7 @@
         const quayLaiBtn = buttons.find(b => b.innerText && (b.innerText.toLowerCase().includes('quay lại vườn') || b.innerText.toLowerCase().includes('quay lại')));
         if (quayLaiBtn && !quayLaiBtn.disabled) {
           quayLaiBtn.click();
-          window.lastClickedTime = Date.now();
+          window.lastClickedTime = Date.now() + 3000;
           return true;
         }
       } else {
@@ -584,7 +584,7 @@
           const quayLaiBtn = buttons.find(b => b.innerText && (b.innerText.toLowerCase().includes('quay lại vườn') || b.innerText.toLowerCase().includes('quay lại')));
           if (quayLaiBtn && !quayLaiBtn.disabled) {
             quayLaiBtn.click();
-            window.lastClickedTime = Date.now();
+            window.lastClickedTime = Date.now() + 3000;
             return true;
           }
         } else {
@@ -601,7 +601,7 @@
             if (quayLaiBtn && !quayLaiBtn.disabled) {
               console.log(`AutoDiscord: Không tìm thấy nút "Cây Tiếp", quay lại vườn.`);
               quayLaiBtn.click();
-              window.lastClickedTime = Date.now();
+              window.lastClickedTime = Date.now() + 3000;
               return true;
             }
           }
@@ -617,7 +617,7 @@
         console.log('AutoDiscord: Bấm "Dược Viên" từ Tông Môn.');
         safeLocalStorage.setItem('garden_status_text', 'Vào Dược Viên...');
         duocVienBtn.click();
-        window.lastClickedTime = Date.now();
+        window.lastClickedTime = Date.now() + 2000;
         return true;
       }
       if (cooldownActive) {
@@ -626,7 +626,7 @@
           console.log('AutoDiscord: Rời Tông Môn về màn hình khám phá.');
           safeLocalStorage.setItem('garden_status_text', 'Rời Tông Môn...');
           quayLaiBtn.click();
-          window.lastClickedTime = Date.now();
+          window.lastClickedTime = Date.now() + 3000;
           return true;
         }
       }
@@ -691,7 +691,7 @@
           running: !!window.autoDiscordBotRunning,
           gardenStatus: getGardenStatusText(),
           debugLogs: debugLogs,
-          version: 11
+          version: 12
         }, '*');
       }
     } catch(e) {
