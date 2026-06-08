@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "AutoDiscord Bot",
+  "version": "1.0",
+  "description": "Extension tự động chọn trên Discord với UI bật/tắt, delay, cooldown và auto hồi máu.",
+  "permissions": ["storage", "scripting", "activeTab"],
+  "host_permissions": ["https://*.discord.com/*"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "AutoDiscord Bot"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://*.discord.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://*.discord.com/*"],
+      "js": ["inject.js"],
+      "run_at": "document_idle",
+      "world": "MAIN"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["inject.js"],
+      "matches": ["https://*.discord.com/*"]
+    }
+  ]
+}

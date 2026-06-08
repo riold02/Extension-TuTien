@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AutoDiscord Bot</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>Auto Tu Tiên</h1>
+    <label class="switch">
+      <input type="checkbox" id="autoHeal" />
+      <span class="slider"></span>
+      <span class="label-text">Auto hồi máu</span>
+    </label>
+
+    <label class="switch">
+      <input type="checkbox" id="autoBiCanh" />
+      <span class="slider"></span>
+      <span class="label-text">Auto đi bí cảnh</span>
+    </label>
+
+    <label class="switch">
+      <input type="checkbox" id="autoGarden" />
+      <span class="slider"></span>
+      <span class="label-text">Auto làm vườn</span>
+    </label>
+
+    <div class="field-group">
+      <label for="delayTime">Delay (ms)</label>
+      <input type="number" id="delayTime" min="500" step="100" />
+    </div>
+
+    <div class="field-group">
+      <label for="cooldownTime">Cooldown (ms)</label>
+      <input type="number" id="cooldownTime" min="1000" step="500" />
+    </div>
+
+    <button id="startStopBtn" class="action-button">Bắt đầu</button>
+    <div id="statusText" class="status">Đang dừng</div>
+    <div id="gardenStatusText" class="status" style="margin-top: 4px; font-weight: 500; color: #38bdf8;"></div>
+    
+    <div class="log-section">
+      <div class="log-header">Nhật ký hoạt động</div>
+      <div id="debugLogs" class="console-box">
+        <div class="console-empty">Chưa có hoạt động nào được ghi nhận.</div>
+      </div>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

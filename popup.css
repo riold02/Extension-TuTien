@@ -1,0 +1,129 @@
+:root {
+  color-scheme: light;
+  background: #0f172a;
+  color: #e2e8f0;
+}
+body {
+  margin: 0;
+  padding: 16px;
+  font-family: Inter, system-ui, sans-serif;
+  min-width: 260px;
+}
+.container {
+  display: grid;
+  gap: 12px;
+}
+h1 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+.field-group {
+  display: grid;
+  gap: 6px;
+}
+label {
+  font-size: 13px;
+}
+input[type="number"] {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #334155;
+  background: #14213d;
+  color: #e2e8f0;
+}
+.action-button {
+  width: 100%;
+  background: #2563eb;
+  color: white;
+  padding: 12px 0;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.action-button:hover {
+  background: #1d4ed8;
+}
+.status {
+  font-size: 13px;
+  color: #94a3b8;
+}
+.switch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.switch input {
+  display: none;
+}
+.slider {
+  width: 40px;
+  height: 22px;
+  background: #334155;
+  border-radius: 999px;
+  position: relative;
+  cursor: pointer;
+}
+.slider::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: white;
+  transition: transform 0.2s ease;
+}
+.switch input:checked + .slider::after {
+  transform: translateX(18px);
+}
+.label-text {
+  font-size: 13px;
+}
+
+.log-section {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.log-header {
+  font-size: 12px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.console-box {
+  font-size: 11px;
+  max-height: 120px;
+  height: 120px;
+  overflow-y: auto;
+  background: #0b1329;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid #1e293b;
+  color: #e2e8f0;
+  font-family: Consolas, Monaco, "Courier New", monospace;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.log-line {
+  line-height: 1.4;
+  text-align: left;
+  border-bottom: 1px dashed #1e293b;
+  padding-bottom: 2px;
+}
+.console-empty {
+  color: #64748b;
+  font-style: italic;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
