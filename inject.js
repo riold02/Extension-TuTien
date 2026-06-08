@@ -234,14 +234,15 @@
 
   function checkAndResetGardenFlags() {
     try {
-      if (!isGardenCooldownActive()) {
-        if (safeLocalStorage.getItem('garden_che_dan_done') === 'true' ||
-            safeLocalStorage.getItem('garden_luyen_hoa_done') === 'true' ||
-            safeLocalStorage.getItem('garden_quy_hiem_done') === 'true') {
+      const lastGardenTime = safeLocalStorage.getItem('lastGardenTime');
+      if (lastGardenTime) {
+        const elapsed = Date.now() - parseInt(lastGardenTime, 10);
+        if (elapsed >= 10 * 60 * 1000) {
           safeLocalStorage.removeItem('garden_che_dan_done');
           safeLocalStorage.removeItem('garden_luyen_hoa_done');
           safeLocalStorage.removeItem('garden_quy_hiem_done');
           safeLocalStorage.removeItem('active_garden');
+          safeLocalStorage.removeItem('lastGardenTime');
           console.log('AutoDiscord: Đã hết cooldown 10 phút, reset trạng thái làm vườn.');
         }
       }
@@ -691,7 +692,7 @@
           running: !!window.autoDiscordBotRunning,
           gardenStatus: getGardenStatusText(),
           debugLogs: debugLogs,
-          version: 12
+          version: 13
         }, '*');
       }
     } catch(e) {
