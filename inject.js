@@ -242,6 +242,7 @@
           safeLocalStorage.removeItem('garden_luyen_hoa_done');
           safeLocalStorage.removeItem('garden_quy_hiem_done');
           safeLocalStorage.removeItem('active_garden');
+          safeLocalStorage.removeItem('well_water_drawn');
           safeLocalStorage.removeItem('lastGardenTime');
           console.log('AutoDiscord: Đã hết cooldown 10 phút, reset trạng thái làm vườn.');
         }
@@ -334,6 +335,23 @@
           return true;
         }
       } else {
+        const wellWaterDrawn = safeLocalStorage.getItem('well_water_drawn') === 'true';
+        if (!wellWaterDrawn) {
+          const mucNuocBtn = buttons.find(b => b.innerText && b.innerText.toLowerCase().includes('múc nước giếng'));
+          if (mucNuocBtn) {
+            if (!mucNuocBtn.disabled) {
+              console.log('AutoDiscord: Bấm múc nước giếng.');
+              safeLocalStorage.setItem('garden_status_text', 'Đang múc nước giếng...');
+              safeLocalStorage.setItem('well_water_drawn', 'true');
+              mucNuocBtn.click();
+              window.lastClickedTime = Date.now() + 2000;
+              return true;
+            }
+          }
+          // Nếu không tìm thấy nút hoặc nút bị vô hiệu hóa, đánh dấu đã hoàn thành để chuyển sang làm vườn
+          safeLocalStorage.setItem('well_water_drawn', 'true');
+        }
+
         const cheDanDone = safeLocalStorage.getItem('garden_che_dan_done') === 'true';
         const luyenHoaDone = safeLocalStorage.getItem('garden_luyen_hoa_done') === 'true';
         const quyHiemDone = safeLocalStorage.getItem('garden_quy_hiem_done') === 'true';
@@ -645,6 +663,7 @@
     safeLocalStorage.removeItem('garden_luyen_hoa_done');
     safeLocalStorage.removeItem('garden_quy_hiem_done');
     safeLocalStorage.removeItem('active_garden');
+    safeLocalStorage.removeItem('well_water_drawn');
     safeLocalStorage.removeItem('lastGardenTime');
     safeLocalStorage.removeItem('garden_status_text');
     safeLocalStorage.removeItem('garden_debug_logs');
@@ -692,7 +711,7 @@
           running: !!window.autoDiscordBotRunning,
           gardenStatus: getGardenStatusText(),
           debugLogs: debugLogs,
-          version: 13
+          version: 14
         }, '*');
       }
     } catch(e) {
