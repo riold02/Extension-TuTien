@@ -56,7 +56,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   window.console.log('content.js: Nhận tin nhắn từ popup:', message.action);
 
   if (message.action === 'ping') {
-    sendResponse({status: 'ok', version: 15});
+    sendResponse({status: 'ok', version: 16});
     return true;
   }
 

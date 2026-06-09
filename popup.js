@@ -1,8 +1,9 @@
-const CURRENT_VERSION = 15;
+const CURRENT_VERSION = 16;
 
 const autoHealInput = document.getElementById('autoHeal');
 const autoBiCanhInput = document.getElementById('autoBiCanh');
 const autoGardenInput = document.getElementById('autoGarden');
+const gardenAoEInput = document.getElementById('gardenAoE');
 const delayInput = document.getElementById('delayTime');
 const cooldownInput = document.getElementById('cooldownTime');
 const startStopBtn = document.getElementById('startStopBtn');
@@ -14,6 +15,7 @@ const DEFAULT_SETTINGS = {
   autoHeal: true,
   autoBiCanh: true,
   autoGarden: false,
+  gardenAoE: false,
   delayTime: 2000,
   cooldownTime: 10000
 };
@@ -51,11 +53,21 @@ function updateStatusText(running, gardenStatus = '', debugLogs = '[]') {
   }
 }
 
+function toggleGardenOptions() {
+  const gardenModeGroup = document.getElementById('gardenModeGroup');
+  if (autoGardenInput.checked) {
+    gardenModeGroup.style.display = 'flex';
+  } else {
+    gardenModeGroup.style.display = 'none';
+  }
+}
+
 function getConfig() {
   return {
     autoHeal: autoHealInput.checked,
     autoBiCanh: autoBiCanhInput.checked,
     autoGarden: autoGardenInput.checked,
+    gardenAoE: gardenAoEInput.checked,
     delayTime: Number(delayInput.value) || DEFAULT_SETTINGS.delayTime,
     cooldownTime: Number(cooldownInput.value) || DEFAULT_SETTINGS.cooldownTime
   };
@@ -159,8 +171,10 @@ async function loadSettings() {
     autoHealInput.checked = result.autoHeal;
     autoBiCanhInput.checked = result.autoBiCanh;
     autoGardenInput.checked = result.autoGarden;
+    gardenAoEInput.checked = result.gardenAoE;
     delayInput.value = result.delayTime;
     cooldownInput.value = result.cooldownTime;
+    toggleGardenOptions();
     const status = await getRunningStatus();
     if (status.error) {
       statusText.textContent = 'Lỗi: ' + status.error;
@@ -181,7 +195,11 @@ startStopBtn.addEventListener('click', async () => {
 
 autoHealInput.addEventListener('change', saveConfig);
 autoBiCanhInput.addEventListener('change', saveConfig);
-autoGardenInput.addEventListener('change', saveConfig);
+autoGardenInput.addEventListener('change', () => {
+  toggleGardenOptions();
+  saveConfig();
+});
+gardenAoEInput.addEventListener('change', saveConfig);
 delayInput.addEventListener('change', saveConfig);
 cooldownInput.addEventListener('change', saveConfig);
 

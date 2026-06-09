@@ -59,6 +59,7 @@
       autoHeal: window.autoDiscordAutoHeal !== undefined ? window.autoDiscordAutoHeal : true,
       autoBiCanh: window.autoDiscordAutoBiCanh !== undefined ? window.autoDiscordAutoBiCanh : true,
       autoGarden: window.autoDiscordAutoGarden !== undefined ? window.autoDiscordAutoGarden : false,
+      gardenAoE: window.autoDiscordGardenAoE !== undefined ? window.autoDiscordGardenAoE : false,
       delayTime: window.autoDiscordDelayTime || 2000,
       cooldownTime: window.autoDiscordCooldownTime || 10000
     };
@@ -68,6 +69,7 @@
     window.autoDiscordAutoHeal = !!config.autoHeal;
     window.autoDiscordAutoBiCanh = config.autoBiCanh !== undefined ? !!config.autoBiCanh : true;
     window.autoDiscordAutoGarden = !!config.autoGarden;
+    window.autoDiscordGardenAoE = !!config.gardenAoE;
     window.autoDiscordDelayTime = parseInt(config.delayTime, 10) || 2000;
     window.autoDiscordCooldownTime = parseInt(config.cooldownTime, 10) || 10000;
     window.lastClickedTime = window.lastClickedTime || 0;
@@ -225,7 +227,7 @@
       const lastGardenTime = safeLocalStorage.getItem('lastGardenTime');
       if (!lastGardenTime) return false;
       const elapsed = Date.now() - parseInt(lastGardenTime, 10);
-      return elapsed < 10 * 60 * 1000; // 10 minutes in ms
+      return elapsed < 1 * 60 * 1000; // 1 minute in ms
     } catch(e) {
       window.console.error('inject.js: isGardenCooldownActive error:', e);
       return false;
@@ -237,14 +239,14 @@
       const lastGardenTime = safeLocalStorage.getItem('lastGardenTime');
       if (lastGardenTime) {
         const elapsed = Date.now() - parseInt(lastGardenTime, 10);
-        if (elapsed >= 10 * 60 * 1000) {
+        if (elapsed >= 1 * 60 * 1000) {
           safeLocalStorage.removeItem('garden_che_dan_done');
           safeLocalStorage.removeItem('garden_luyen_hoa_done');
           safeLocalStorage.removeItem('garden_quy_hiem_done');
           safeLocalStorage.removeItem('active_garden');
           safeLocalStorage.removeItem('well_water_drawn');
           safeLocalStorage.removeItem('lastGardenTime');
-          console.log('AutoDiscord: Đã hết cooldown 10 phút, reset trạng thái làm vườn.');
+          console.log('AutoDiscord: Đã hết cooldown 1 phút, reset trạng thái làm vườn.');
         }
       }
     } catch(e) {}
@@ -259,7 +261,7 @@
         const lastGardenTime = safeLocalStorage.getItem('lastGardenTime');
         if (lastGardenTime) {
           const elapsed = Date.now() - parseInt(lastGardenTime, 10);
-          const remaining = 10 * 60 * 1000 - elapsed;
+          const remaining = 1 * 60 * 1000 - elapsed;
           if (remaining > 0) {
             const minutes = Math.floor(remaining / 60000);
             const seconds = Math.floor((remaining % 60000) / 1000);
@@ -387,15 +389,15 @@
             return true;
           }
         } else {
-          console.log('AutoDiscord: Đã hoàn thành tất cả các vườn. Reset trạng thái để bắt đầu chu kỳ mới.');
-          safeLocalStorage.removeItem('garden_che_dan_done');
-          safeLocalStorage.removeItem('garden_luyen_hoa_done');
-          safeLocalStorage.removeItem('garden_quy_hiem_done');
-          safeLocalStorage.removeItem('well_water_drawn');
-          safeLocalStorage.removeItem('active_garden');
-          safeLocalStorage.setItem('garden_status_text', 'Bắt đầu chu kỳ làm vườn mới...');
-          window.lastClickedTime = Date.now() + 3000;
-          return true;
+          console.log('AutoDiscord: Đã hoàn thành tất cả các vườn. Kích hoạt cooldown 1 phút.');
+          safeLocalStorage.setItem('lastGardenTime', Date.now().toString());
+          safeLocalStorage.setItem('garden_status_text', 'Đã xong toàn bộ vườn.');
+          const quayLaiBtn = buttons.find(b => b.innerText && b.innerText.toLowerCase().includes('quay lại tông môn'));
+          if (quayLaiBtn && !quayLaiBtn.disabled) {
+            quayLaiBtn.click();
+            window.lastClickedTime = Date.now() + 3000;
+            return true;
+          }
         }
       }
       return true;
@@ -433,71 +435,103 @@
             return true;
           }
         } else {
-          let selectMenu = latestMsg.querySelector('[role="combobox"], [class*="select"]');
-          if (!selectMenu) {
-            // Fallback: Tìm thẻ div hoặc button có chứa chữ "Chọn một ô đất" hoặc "gieo hạt"
-            selectMenu = Array.from(latestMsg.querySelectorAll('div, button, [role="button"]')).find(el => {
-              const t = el.innerText ? el.innerText.toLowerCase() : "";
-              return t.includes("chọn một ô đất") || t.includes("gieo hạt") || t.includes("làm vườn") || t.includes("ô đất");
-            });
-          }
-
-          if (selectMenu) {
-            // Tìm option trực tiếp trên toàn bộ document để tránh lỗi so khớp sai container
-            let option = Array.from(document.querySelectorAll('[role="option"], [class*="option-"], [class*="menuItem-"]')).find(el => {
-              const t = (el.innerText || "").trim();
-              return /Ô 1[^0-9]/.test(t) || t === "Ô 1" || t.includes("Ô đất 1") || t.includes("[1]");
+          if (config.gardenAoE) {
+            // Chế độ AoE: tìm nút AoE nào sáng (hoạt động) thì bấm
+            const activeAoEBtn = buttons.find(b => {
+              if (b.disabled || !b.innerText) return false;
+              const t = b.innerText.toLowerCase();
+              return t.includes('aoe');
             });
 
-            if (!option) {
-              // Fallback 1: Tìm trong các listbox hoặc popout container
-              const containers = Array.from(document.querySelectorAll('[role="listbox"], [class*="popout-"], [class*="layer-"], [class*="menu-"], [class*="dropdown"]'));
-              for (const container of containers) {
-                // Tránh so khớp nhầm với container chính của app (layers-...)
-                if (container.classList && (container.classList.contains('layers-1YqQoP') || container.className.includes('layers-'))) {
-                  continue;
-                }
-                const found = Array.from(container.querySelectorAll('div, span, [role="button"], [role="option"]')).find(el => {
-                  const t = (el.innerText || "").trim();
-                  return /Ô 1[^0-9]/.test(t) || t === "Ô 1" || t.includes("Ô đất 1") || t.includes("[1]");
-                });
-                if (found) {
-                  option = found;
-                  break;
-                }
+            if (activeAoEBtn) {
+              console.log(`AutoDiscord: Bấm nút AoE: ${activeAoEBtn.innerText}`);
+              safeLocalStorage.setItem('garden_status_text', `Vườn ${gardenName}: Đang sử dụng AoE...`);
+              activeAoEBtn.click();
+              window.lastClickedTime = Date.now() + 2000;
+              return true;
+            } else {
+              // Không còn nút AoE nào sáng -> coi như xong vườn này
+              console.log(`AutoDiscord: Hết nút AoE hoạt động. Hoàn thành vườn ${activeGarden}.`);
+              safeLocalStorage.setItem('garden_' + activeGarden + '_done', 'true');
+              safeLocalStorage.setItem('garden_status_text', `Vườn ${gardenName}: Hoàn thành AoE, đang trở ra...`);
+              const quayLaiBtn = buttons.find(b => {
+                const t = (b.innerText || "").toLowerCase();
+                return t.includes('quay lại') || t.includes('trở về') || t.includes('dược viên');
+              });
+              if (quayLaiBtn && !quayLaiBtn.disabled) {
+                quayLaiBtn.click();
+                window.lastClickedTime = Date.now() + 3000;
+                return true;
               }
             }
-
-            if (!option) {
-              // Fallback 2: Quét mọi thẻ có class hoặc role liên quan đến option, chứa text "Ô 1"
-              option = Array.from(document.querySelectorAll('div, span, li')).find(el => {
-                const t = (el.innerText || "").trim();
-                const hasOptionText = /Ô 1[^0-9]/.test(t) || t === "Ô 1" || t.includes("Ô đất 1") || t.includes("[1]");
-                const isClickable = el.getAttribute('role') === 'option' || 
-                                   el.className.includes('option') || 
-                                   el.closest('[role="option"]') || 
-                                   el.closest('[class*="option-"]') ||
-                                   el.closest('[role="listbox"]');
-                return hasOptionText && isClickable;
+          } else {
+            // Chế độ đơn thể (chăm sóc từng ô)
+            let selectMenu = latestMsg.querySelector('[role="combobox"], [class*="select"]');
+            if (!selectMenu) {
+              // Fallback: Tìm thẻ div hoặc button có chứa chữ "Chọn một ô đất" hoặc "gieo hạt"
+              selectMenu = Array.from(latestMsg.querySelectorAll('div, button, [role="button"]')).find(el => {
+                const t = el.innerText ? el.innerText.toLowerCase() : "";
+                return t.includes("chọn một ô đất") || t.includes("gieo hạt") || t.includes("làm vườn") || t.includes("ô đất");
               });
             }
 
-            if (option) {
-              console.log('AutoDiscord: Tìm thấy Ô 1:', option.innerText || option.textContent);
-              console.log('AutoDiscord: Chọn Ô 1 từ menu.');
-              safeLocalStorage.setItem('garden_status_text', `Vườn ${gardenName}: Đang chọn Ô 1...`);
-              option.click();
-              window.lastClickedTime = Date.now();
-              return true;
+            if (selectMenu) {
+              // Tìm option trực tiếp trên toàn bộ document để tránh lỗi so khớp sai container
+              let option = Array.from(document.querySelectorAll('[role="option"], [class*="option-"], [class*="menuItem-"]')).find(el => {
+                const t = (el.innerText || "").trim();
+                return /Ô 1[^0-9]/.test(t) || t === "Ô 1" || t.includes("Ô đất 1") || t.includes("[1]");
+              });
+
+              if (!option) {
+                // Fallback 1: Tìm trong các listbox hoặc popout container
+                const containers = Array.from(document.querySelectorAll('[role="listbox"], [class*="popout-"], [class*="layer-"], [class*="menu-"], [class*="dropdown"]'));
+                for (const container of containers) {
+                  // Tránh so khớp nhầm với container chính của app (layers-...)
+                  if (container.classList && (container.classList.contains('layers-1YqQoP') || container.className.includes('layers-'))) {
+                    continue;
+                  }
+                  const found = Array.from(container.querySelectorAll('div, span, [role="button"], [role="option"]')).find(el => {
+                    const t = (el.innerText || "").trim();
+                    return /Ô 1[^0-9]/.test(t) || t === "Ô 1" || t.includes("Ô đất 1") || t.includes("[1]");
+                  });
+                  if (found) {
+                    option = found;
+                    break;
+                  }
+                }
+              }
+
+              if (!option) {
+                // Fallback 2: Quét mọi thẻ có class hoặc role liên quan đến option, chứa text "Ô 1"
+                option = Array.from(document.querySelectorAll('div, span, li')).find(el => {
+                  const t = (el.innerText || "").trim();
+                  const hasOptionText = /Ô 1[^0-9]/.test(t) || t === "Ô 1" || t.includes("Ô đất 1") || t.includes("[1]");
+                  const isClickable = el.getAttribute('role') === 'option' || 
+                                     el.className.includes('option') || 
+                                     el.closest('[role="option"]') || 
+                                     el.closest('[class*="option-"]') ||
+                                     el.closest('[role="listbox"]');
+                  return hasOptionText && isClickable;
+                });
+              }
+
+              if (option) {
+                console.log('AutoDiscord: Tìm thấy Ô 1:', option.innerText || option.textContent);
+                console.log('AutoDiscord: Chọn Ô 1 từ menu.');
+                safeLocalStorage.setItem('garden_status_text', `Vườn ${gardenName}: Đang chọn Ô 1...`);
+                option.click();
+                window.lastClickedTime = Date.now();
+                return true;
+              } else {
+                console.log('AutoDiscord: Click dropdown chọn ô đất.');
+                safeLocalStorage.setItem('garden_status_text', `Vườn ${gardenName}: Mở menu chọn ô...`);
+                selectMenu.click();
+                window.lastClickedTime = Date.now();
+                return true;
+              }
             } else {
-              console.log('AutoDiscord: Click dropdown chọn ô đất.');
-              safeLocalStorage.setItem('garden_status_text', `Vườn ${gardenName}: Mở menu chọn ô...`);
-              selectMenu.click();
-              window.lastClickedTime = Date.now();
-              return true;
+              console.log('AutoDiscord: Không tìm thấy Select Dropdown để chọn ô đất.');
             }
-          } else {
-            console.log('AutoDiscord: Không tìm thấy Select Dropdown để chọn ô đất.');
           }
         }
       }
@@ -506,6 +540,17 @@
 
     // --- CASE 3: PLOT DETAILS PAGE ---
     if (text.toLowerCase().includes("chi tiết ô đất")) {
+      if (config.gardenAoE) {
+        // Trong chế độ AoE mà lỡ lạc vào trang chi tiết, bấm quay lại vườn ngay
+        const quayLaiBtn = buttons.find(b => b.innerText && (b.innerText.toLowerCase().includes('quay lại vườn') || b.innerText.toLowerCase().includes('quay lại')));
+        if (quayLaiBtn && !quayLaiBtn.disabled) {
+          console.log('AutoDiscord: Đang ở chế độ AoE, quay lại sơ đồ vườn.');
+          quayLaiBtn.click();
+          window.lastClickedTime = Date.now() + 3000;
+          return true;
+        }
+      }
+
       if (cooldownActive) {
         const quayLaiBtn = buttons.find(b => b.innerText && (b.innerText.toLowerCase().includes('quay lại vườn') || b.innerText.toLowerCase().includes('quay lại')));
         if (quayLaiBtn && !quayLaiBtn.disabled) {
@@ -711,7 +756,7 @@
           running: !!window.autoDiscordBotRunning,
           gardenStatus: getGardenStatusText(),
           debugLogs: debugLogs,
-          version: 15
+          version: 16
         }, '*');
       }
     } catch(e) {
