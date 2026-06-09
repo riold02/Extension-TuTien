@@ -163,7 +163,7 @@
 
       if (!targetButton && config.autoHeal) {
         const hasStart = buttons.find((b) => b.innerText.toLowerCase().includes('bắt đầu'));
-        const hasHeal = buttons.find((b) => b.innerText.toLowerCase().includes('hồi phục'));
+        const hasHeal = buttons.find((b) => b.innerText && b.innerText.toLowerCase().trim() === 'hồi phục đội');
         if (hasStart && hasHeal) {
           const msgContainer = hasHeal.closest('li[id^="chat-messages-"]');
           const msgId = msgContainer ? msgContainer.id : 'unknown_lobby';
@@ -777,7 +777,7 @@
           running: !!window.autoDiscordBotRunning,
           gardenStatus: getGardenStatusText(),
           debugLogs: debugLogs,
-          version: 17
+          version: 18
         }, '*');
       }
     } catch(e) {
