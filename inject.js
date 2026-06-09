@@ -387,15 +387,15 @@
             return true;
           }
         } else {
-          console.log('AutoDiscord: Đã hoàn thành tất cả các vườn. Kích hoạt cooldown 10 phút.');
-          safeLocalStorage.setItem('lastGardenTime', Date.now().toString());
-          safeLocalStorage.setItem('garden_status_text', 'Đã xong toàn bộ vườn.');
-          const quayLaiBtn = buttons.find(b => b.innerText && b.innerText.toLowerCase().includes('quay lại tông môn'));
-          if (quayLaiBtn && !quayLaiBtn.disabled) {
-            quayLaiBtn.click();
-            window.lastClickedTime = Date.now() + 3000;
-            return true;
-          }
+          console.log('AutoDiscord: Đã hoàn thành tất cả các vườn. Reset trạng thái để bắt đầu chu kỳ mới.');
+          safeLocalStorage.removeItem('garden_che_dan_done');
+          safeLocalStorage.removeItem('garden_luyen_hoa_done');
+          safeLocalStorage.removeItem('garden_quy_hiem_done');
+          safeLocalStorage.removeItem('well_water_drawn');
+          safeLocalStorage.removeItem('active_garden');
+          safeLocalStorage.setItem('garden_status_text', 'Bắt đầu chu kỳ làm vườn mới...');
+          window.lastClickedTime = Date.now() + 3000;
+          return true;
         }
       }
       return true;
@@ -711,7 +711,7 @@
           running: !!window.autoDiscordBotRunning,
           gardenStatus: getGardenStatusText(),
           debugLogs: debugLogs,
-          version: 14
+          version: 15
         }, '*');
       }
     } catch(e) {
