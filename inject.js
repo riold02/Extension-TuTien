@@ -245,6 +245,7 @@
           safeLocalStorage.removeItem('garden_quy_hiem_done');
           safeLocalStorage.removeItem('active_garden');
           safeLocalStorage.removeItem('well_water_drawn');
+          safeLocalStorage.removeItem('garden_aoe_clicked');
           safeLocalStorage.removeItem('lastGardenTime');
           console.log('AutoDiscord: Đã hết cooldown 1 phút, reset trạng thái làm vườn.');
         }
@@ -436,22 +437,11 @@
           }
         } else {
           if (config.gardenAoE) {
-            // Chế độ AoE: tìm nút AoE nào sáng (hoạt động) thì bấm
-            const activeAoEBtn = buttons.find(b => {
-              if (b.disabled || !b.innerText) return false;
-              const t = b.innerText.toLowerCase();
-              return t.includes('aoe');
-            });
-
-            if (activeAoEBtn) {
-              console.log(`AutoDiscord: Bấm nút AoE: ${activeAoEBtn.innerText}`);
-              safeLocalStorage.setItem('garden_status_text', `Vườn ${gardenName}: Đang sử dụng AoE...`);
-              activeAoEBtn.click();
-              window.lastClickedTime = Date.now() + 2000;
-              return true;
-            } else {
-              // Không còn nút AoE nào sáng -> coi như xong vườn này
-              console.log(`AutoDiscord: Hết nút AoE hoạt động. Hoàn thành vườn ${activeGarden}.`);
+            const aoeClicked = safeLocalStorage.getItem('garden_aoe_clicked') === 'true';
+            if (aoeClicked) {
+              // Đã bấm AoE 1 lần rồi, giờ bấm quay lại sảnh chính Dược Viên
+              console.log(`AutoDiscord: Đã bấm AoE xong cho vườn ${activeGarden}. Quay lại Dược Viên.`);
+              safeLocalStorage.removeItem('garden_aoe_clicked');
               safeLocalStorage.setItem('garden_' + activeGarden + '_done', 'true');
               safeLocalStorage.setItem('garden_status_text', `Vườn ${gardenName}: Hoàn thành AoE, đang trở ra...`);
               const quayLaiBtn = buttons.find(b => {
@@ -462,6 +452,36 @@
                 quayLaiBtn.click();
                 window.lastClickedTime = Date.now() + 3000;
                 return true;
+              }
+            } else {
+              // Chưa bấm AoE, tìm nút AoE nào sáng (hoạt động) thì bấm
+              const activeAoEBtn = buttons.find(b => {
+                if (b.disabled || !b.innerText) return false;
+                const t = b.innerText.toLowerCase();
+                return t.includes('aoe');
+              });
+
+              if (activeAoEBtn) {
+                console.log(`AutoDiscord: Bấm nút AoE: ${activeAoEBtn.innerText}`);
+                safeLocalStorage.setItem('garden_status_text', `Vườn ${gardenName}: Đang sử dụng AoE...`);
+                safeLocalStorage.setItem('garden_aoe_clicked', 'true');
+                activeAoEBtn.click();
+                window.lastClickedTime = Date.now() + 2000;
+                return true;
+              } else {
+                // Không có nút AoE nào sáng -> coi như xong vườn này luôn
+                console.log(`AutoDiscord: Không có nút AoE hoạt động. Hoàn thành vườn ${activeGarden}.`);
+                safeLocalStorage.setItem('garden_' + activeGarden + '_done', 'true');
+                safeLocalStorage.setItem('garden_status_text', `Vườn ${gardenName}: Không có AoE sáng, đang trở ra...`);
+                const quayLaiBtn = buttons.find(b => {
+                  const t = (b.innerText || "").toLowerCase();
+                  return t.includes('quay lại') || t.includes('trở về') || t.includes('dược viên');
+                });
+                if (quayLaiBtn && !quayLaiBtn.disabled) {
+                  quayLaiBtn.click();
+                  window.lastClickedTime = Date.now() + 3000;
+                  return true;
+                }
               }
             }
           } else {
@@ -709,6 +729,7 @@
     safeLocalStorage.removeItem('garden_quy_hiem_done');
     safeLocalStorage.removeItem('active_garden');
     safeLocalStorage.removeItem('well_water_drawn');
+    safeLocalStorage.removeItem('garden_aoe_clicked');
     safeLocalStorage.removeItem('lastGardenTime');
     safeLocalStorage.removeItem('garden_status_text');
     safeLocalStorage.removeItem('garden_debug_logs');
@@ -756,7 +777,7 @@
           running: !!window.autoDiscordBotRunning,
           gardenStatus: getGardenStatusText(),
           debugLogs: debugLogs,
-          version: 16
+          version: 17
         }, '*');
       }
     } catch(e) {
