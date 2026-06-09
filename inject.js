@@ -162,7 +162,10 @@
       }
 
       if (!targetButton && config.autoHeal) {
-        const hasStart = buttons.find((b) => b.innerText.toLowerCase().includes('bắt đầu'));
+        const hasStart = buttons.find((b) => {
+          const text = b.innerText.toLowerCase();
+          return text.includes('bắt đầu') || text.includes('khởi hành');
+        });
         const hasHeal = buttons.find((b) => b.innerText && b.innerText.toLowerCase().trim() === 'hồi toàn đội');
         if (hasStart && hasHeal) {
           const msgContainer = hasHeal.closest('li[id^="chat-messages-"]');
@@ -170,6 +173,9 @@
           if (window.lastHealedMsgId !== msgId) {
             window.lastHealedMsgId = msgId;
             targetButton = hasHeal;
+          } else {
+            console.log('AutoDiscord: Đã bấm Hồi Toàn Đội, đang chờ server cập nhật trạng thái...');
+            return;
           }
         }
       }
@@ -777,7 +783,7 @@
           running: !!window.autoDiscordBotRunning,
           gardenStatus: getGardenStatusText(),
           debugLogs: debugLogs,
-          version: 19
+          version: 20
         }, '*');
       }
     } catch(e) {
