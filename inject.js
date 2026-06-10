@@ -153,7 +153,7 @@
 
       const SPECIAL_PRIORITIES = ['hứng lấy linh nhũ', 'để lại cho sinh linh khác', 'lắng nghe', 'phong ấn', 'cân bằng'];
       const PRIORITIES = ['sinh', 'hưu', 'cảnh', 'khai', 'đỗ'];
-      const AUTO_CLICKS = ['bắt đầu', 'tiếp tục', 'tiếp tục khám phá', 'khởi hành'];
+      const AUTO_CLICKS = ['bắt đầu', 'tiếp tục', 'tiếp tục khám phá', 'khởi hành', 'chiến tiếp'];
 
       let targetButton = null;
       for (const sp of SPECIAL_PRIORITIES) {
@@ -231,7 +231,7 @@
           if (targetButton) {
             console.log('AutoDiscord: chọn nút tự động cơ bản', targetButton.innerText);
             const textLower = targetButton.innerText.toLowerCase();
-            if (textLower.includes('bắt đầu') || textLower.includes('khởi hành') || textLower.includes('tiếp tục')) {
+            if (textLower.includes('bắt đầu') || textLower.includes('khởi hành') || textLower.includes('tiếp tục') || textLower.includes('chiến tiếp')) {
               if (window.localStorage) {
                 try {
                   for (let i = window.localStorage.length - 1; i >= 0; i--) {
@@ -834,7 +834,7 @@
           running: !!window.autoDiscordBotRunning,
           gardenStatus: getGardenStatusText(),
           debugLogs: debugLogs,
-          version: 22
+          version: 23
         }, '*');
       }
     } catch(e) {
