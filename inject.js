@@ -170,12 +170,27 @@
         if (hasStart && hasHeal) {
           const msgContainer = hasHeal.closest('li[id^="chat-messages-"]');
           const msgId = msgContainer ? msgContainer.id : 'unknown_lobby';
-          if (window.lastHealedMsgId !== msgId) {
-            window.lastHealedMsgId = msgId;
+          
+          if (window.localStorage) {
+            try {
+              for (let i = window.localStorage.length - 1; i >= 0; i--) {
+                const key = window.localStorage.key(i);
+                if (key && key.startsWith('heal_clicks_') && key !== 'heal_clicks_' + msgId) {
+                  window.localStorage.removeItem(key);
+                }
+              }
+            } catch(e) {}
+          }
+
+          const clicksStr = safeLocalStorage.getItem('heal_clicks_' + msgId);
+          const clicks = clicksStr ? parseInt(clicksStr, 10) : 0;
+
+          if (clicks < 3) {
+            safeLocalStorage.setItem('heal_clicks_' + msgId, (clicks + 1).toString());
+            console.log(`AutoDiscord: Bấm Hồi Toàn Đội lần thứ ${clicks + 1} cho tin nhắn ${msgId}`);
             targetButton = hasHeal;
           } else {
-            console.log('AutoDiscord: Đã bấm Hồi Toàn Đội, đang chờ server cập nhật trạng thái...');
-            return;
+            console.log(`AutoDiscord: Đã bấm Hồi Toàn Đội đủ 3 lần cho tin nhắn ${msgId}. Tiến hành chuẩn bị bắt đầu.`);
           }
         }
       }
@@ -783,7 +798,7 @@
           running: !!window.autoDiscordBotRunning,
           gardenStatus: getGardenStatusText(),
           debugLogs: debugLogs,
-          version: 20
+          version: 21
         }, '*');
       }
     } catch(e) {
