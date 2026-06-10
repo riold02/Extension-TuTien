@@ -168,8 +168,8 @@
         });
         const hasHeal = buttons.find((b) => b.innerText && b.innerText.toLowerCase().trim() === 'hồi toàn đội');
         if (hasStart && hasHeal) {
-          const msgContainer = hasHeal.closest('li[id^="chat-messages-"]');
-          const msgId = msgContainer ? msgContainer.id : 'unknown_lobby';
+          const msgContainer = hasHeal.closest('[class*="messageListItem"], [id^="chat-messages-"], li');
+          const msgId = msgContainer ? (msgContainer.id || msgContainer.getAttribute('data-list-item-id') || 'unknown_lobby') : 'unknown_lobby';
           
           if (window.localStorage) {
             try {
@@ -210,6 +210,19 @@
           }
         }
 
+        if (targetButton) {
+          if (window.localStorage) {
+            try {
+              for (let i = window.localStorage.length - 1; i >= 0; i--) {
+                const key = window.localStorage.key(i);
+                if (key && key.startsWith('heal_clicks_')) {
+                  window.localStorage.removeItem(key);
+                }
+              }
+            } catch(e) {}
+          }
+        }
+
         if (!targetButton) {
           targetButton = buttons.find((b) => {
             const text = b.innerText.toLowerCase().trim();
@@ -217,6 +230,19 @@
           });
           if (targetButton) {
             console.log('AutoDiscord: chọn nút tự động cơ bản', targetButton.innerText);
+            const textLower = targetButton.innerText.toLowerCase();
+            if (textLower.includes('bắt đầu') || textLower.includes('khởi hành') || textLower.includes('tiếp tục')) {
+              if (window.localStorage) {
+                try {
+                  for (let i = window.localStorage.length - 1; i >= 0; i--) {
+                    const key = window.localStorage.key(i);
+                    if (key && key.startsWith('heal_clicks_')) {
+                      window.localStorage.removeItem(key);
+                    }
+                  }
+                } catch(e) {}
+              }
+            }
           }
         }
 
@@ -754,7 +780,17 @@
     safeLocalStorage.removeItem('lastGardenTime');
     safeLocalStorage.removeItem('garden_status_text');
     safeLocalStorage.removeItem('garden_debug_logs');
-    console.log('AutoDiscord: Đã reset bộ nhớ làm vườn khi khởi động bot.');
+    if (window.localStorage) {
+      try {
+        for (let i = window.localStorage.length - 1; i >= 0; i--) {
+          const key = window.localStorage.key(i);
+          if (key && key.startsWith('heal_clicks_')) {
+            window.localStorage.removeItem(key);
+          }
+        }
+      } catch(e) {}
+    }
+    console.log('AutoDiscord: Đã reset bộ nhớ làm vườn & hồi hp khi khởi động bot.');
 
     window.botInterval = setInterval(runBot, window.autoDiscordDelayTime);
     window.autoDiscordBotRunning = true;
@@ -798,7 +834,7 @@
           running: !!window.autoDiscordBotRunning,
           gardenStatus: getGardenStatusText(),
           debugLogs: debugLogs,
-          version: 21
+          version: 22
         }, '*');
       }
     } catch(e) {
