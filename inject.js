@@ -210,18 +210,6 @@
           }
         }
 
-        if (targetButton) {
-          if (window.localStorage) {
-            try {
-              for (let i = window.localStorage.length - 1; i >= 0; i--) {
-                const key = window.localStorage.key(i);
-                if (key && key.startsWith('heal_clicks_')) {
-                  window.localStorage.removeItem(key);
-                }
-              }
-            } catch(e) {}
-          }
-        }
 
         if (!targetButton) {
           targetButton = buttons.find((b) => {
@@ -231,7 +219,7 @@
           if (targetButton) {
             console.log('AutoDiscord: chọn nút tự động cơ bản', targetButton.innerText);
             const textLower = targetButton.innerText.toLowerCase();
-            if (textLower.includes('bắt đầu') || textLower.includes('khởi hành') || textLower.includes('tiếp tục') || textLower.includes('chiến tiếp')) {
+            if (textLower.includes('chiến tiếp')) {
               if (window.localStorage) {
                 try {
                   for (let i = window.localStorage.length - 1; i >= 0; i--) {
@@ -834,7 +822,7 @@
           running: !!window.autoDiscordBotRunning,
           gardenStatus: getGardenStatusText(),
           debugLogs: debugLogs,
-          version: 23
+          version: 24
         }, '*');
       }
     } catch(e) {

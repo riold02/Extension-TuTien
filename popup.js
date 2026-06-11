@@ -1,4 +1,4 @@
-const CURRENT_VERSION = 23;
+const CURRENT_VERSION = 24;
 
 const autoHealInput = document.getElementById('autoHeal');
 const autoBiCanhInput = document.getElementById('autoBiCanh');
