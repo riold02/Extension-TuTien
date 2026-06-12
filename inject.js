@@ -14,6 +14,8 @@
   }
   window.autoDiscordBotRunning = false;
   window.__autoDiscordBotInjected = true;
+  window.autoDiscordHealClicks = 0;
+  window.autoDiscordLastLobbyId = "";
   const safeLocalStorage = (() => {
     try {
       const testKey = '__test_local_storage_accessibility__';
@@ -153,7 +155,7 @@
         'hành trang', 'tầm bảo', 'động phủ', 'lịch luyện', 'bí cảnh',
         'hoạt động', 'nhiệm vụ', 'cửa hàng', 'vấn đỉnh', 'vạn bảo lâu',
         'vạn thú các', 'chế tạo', 'bảng xếp hạng', 'hảo hữu', 'thư viện',
-        'tông môn', 'đỗ phường', 'đạo quy', 'phúc lợi', 'chat thế giới'
+        'tông môn', 'đỗ phường', 'đạo quy', 'phúc lợi', 'chat thế giới', 'thông báo'
       ];
 
       buttons = buttons.filter((b) => {
@@ -173,19 +175,34 @@
       let lobbyMsg = null;
       if (config.autoBiCanh || config.autoHeal) {
         // Tìm tin nhắn mới nhất trong 2 tin nhắn gần đây có chứa nút bấm
-        let activeMsgWithButtons = null;
         for (let i = recentMessages.length - 1; i >= 0; i--) {
           const msg = recentMessages[i];
-          if (msg.querySelectorAll('button').length > 0) {
-            activeMsgWithButtons = msg;
-            break;
-          }
-        }
-        if (activeMsgWithButtons) {
-          const text = activeMsgWithButtons.innerText || "";
-          if (text.match(/(?:đội ngũ|thành viên|số người|phòng|đội|đội hình|lobby|nhóm)\s*[:(]?\s*(\d+)\s*\/\s*(\d+)/i)) {
-            isLobby = true;
-            lobbyMsg = activeMsgWithButtons;
+          const msgButtons = Array.from(msg.querySelectorAll('button'));
+          if (msgButtons.length > 0) {
+            const text = msg.innerText || "";
+            // Cách 1: Khớp qua text của tin nhắn sảnh
+            const hasLobbyText = text.match(/(?:đội ngũ|thành viên|số người|phòng|đội|đội hình|lobby|nhóm)\s*[:(]?\s*(\d+)\s*\/\s*(\d+)/i);
+            
+            // Cách 2: Khớp qua sự xuất hiện của các nút đặc trưng trong sảnh chờ
+            const hasLobbyButtons = msgButtons.some(b => {
+              if (!b.innerText) return false;
+              const btnText = b.innerText.toLowerCase().trim();
+              return btnText.includes('hồi toàn đội') || 
+                     btnText.includes('khóa phòng') || 
+                     btnText.includes('mở phòng') || 
+                     btnText.includes('rời phòng') || 
+                     btnText.includes('rời nhóm') || 
+                     btnText.includes('làm mới') || 
+                     btnText.includes('bắt đầu') || 
+                     btnText.includes('khởi hành');
+            });
+
+            if (hasLobbyText || hasLobbyButtons) {
+              isLobby = true;
+              lobbyMsg = msg;
+              break;
+            }
+            break; // Gặp tin nhắn chứa nút bấm khác -> Đã ra khỏi sảnh
           }
         }
       }
@@ -195,37 +212,34 @@
         lobbyMsgId = lobbyMsg.id || lobbyMsg.getAttribute('data-list-item-id') || 'unknown_lobby';
       }
 
-      // Giải phóng bộ đếm hồi máu khi không còn ở trong sảnh (ví dụ khi đang đi phó bản)
-      if (!isLobby) {
-        if (window.localStorage) {
-          try {
-            for (let i = window.localStorage.length - 1; i >= 0; i--) {
-              const key = window.localStorage.key(i);
-              if (key && key.startsWith('heal_clicks_')) {
-                window.localStorage.removeItem(key);
-              }
-            }
-          } catch(e) {}
+      // Đồng bộ và giải phóng bộ đếm hồi máu
+      if (isLobby) {
+        if (window.autoDiscordLastLobbyId !== lobbyMsgId) {
+          window.autoDiscordLastLobbyId = lobbyMsgId;
+          window.autoDiscordHealClicks = 0;
+          window.console.log(`AutoDiscord: Phát hiện sảnh mới [${lobbyMsgId}], reset bộ đếm hồi máu.`);
         }
+      } else {
+        window.autoDiscordHealClicks = 0;
+        window.autoDiscordLastLobbyId = "";
       }
 
       const SPECIAL_PRIORITIES = ['hứng lấy linh nhũ', 'để lại cho sinh linh khác', 'lắng nghe', 'phong ấn', 'cân bằng'];
       const PRIORITIES = ['sinh', 'hưu', 'cảnh', 'khai', 'đỗ'];
-      const AUTO_CLICKS = ['bắt đầu', 'tiếp tục', 'tiếp tục khám phá', 'khởi hành', 'chiến tiếp'];
+      const AUTO_CLICKS = ['tiếp tục', 'tiếp tục khám phá', 'chiến tiếp'];
 
       let targetButton = null;
       let actionName = "";
 
       // 1. Ưu tiên 1: Hồi Toàn Đội (chỉ ở sảnh chờ, nếu có bật autoHeal và số lần click < 3)
       if (!targetButton && isLobby && config.autoHeal) {
-        const clicksStr = safeLocalStorage.getItem('heal_clicks_' + lobbyMsgId);
-        const clicks = clicksStr ? parseInt(clicksStr, 10) : 0;
+        const clicks = window.autoDiscordHealClicks || 0;
         if (clicks < 3) {
-          const hasHeal = buttons.find((b) => b.innerText && b.innerText.toLowerCase().trim() === 'hồi toàn đội');
+          const hasHeal = buttons.find((b) => b.innerText && b.innerText.toLowerCase().trim().includes('hồi toàn đội'));
           if (hasHeal) {
             targetButton = hasHeal;
             actionName = `Hồi Toàn Đội lần ${clicks + 1}/3`;
-            safeLocalStorage.setItem('heal_clicks_' + lobbyMsgId, (clicks + 1).toString());
+            window.autoDiscordHealClicks = clicks + 1;
           }
         }
       }
@@ -253,13 +267,15 @@
           // Nếu bật tự động hồi máu, phải đảm bảo đã hồi máu đủ 3 lần trước khi bắt đầu!
           let canStart = true;
           if (config.autoHeal) {
-            const clicksStr = safeLocalStorage.getItem('heal_clicks_' + lobbyMsgId);
-            const clicks = clicksStr ? parseInt(clicksStr, 10) : 0;
+            const clicks = window.autoDiscordHealClicks || 0;
             if (clicks < 3) {
-              canStart = false;
-              const statusMsg = `Bí Cảnh: Đang đợi hồi máu đủ 3 lần (Hiện tại: ${clicks}/3)...`;
-              safeLocalStorage.setItem('bicanh_status_text', statusMsg);
-              window.console.log(`AutoDiscord: ${statusMsg}`);
+              const hasHealBtn = buttons.some((b) => b.innerText && b.innerText.toLowerCase().trim().includes('hồi toàn đội'));
+              if (hasHealBtn) {
+                canStart = false;
+                const statusMsg = `Bí Cảnh: Đang đợi hồi máu đủ 3 lần (Hiện tại: ${clicks}/3)...`;
+                safeLocalStorage.setItem('bicanh_status_text', statusMsg);
+                window.console.log(`AutoDiscord: ${statusMsg}`);
+              }
             }
           }
 
@@ -317,16 +333,8 @@
           
           // Dọn dẹp bộ đếm hồi máu khi bấm "chiến tiếp"
           if (btn.innerText.toLowerCase().trim().includes('chiến tiếp')) {
-            if (window.localStorage) {
-              try {
-                for (let i = window.localStorage.length - 1; i >= 0; i--) {
-                  const key = window.localStorage.key(i);
-                  if (key && key.startsWith('heal_clicks_')) {
-                    window.localStorage.removeItem(key);
-                  }
-                }
-              } catch(e) {}
-            }
+            window.autoDiscordHealClicks = 0;
+            window.autoDiscordLastLobbyId = "";
           }
         }
       }
@@ -912,16 +920,8 @@
     safeLocalStorage.removeItem('garden_status_text');
     safeLocalStorage.removeItem('garden_debug_logs');
     safeLocalStorage.removeItem('bicanh_status_text');
-    if (window.localStorage) {
-      try {
-        for (let i = window.localStorage.length - 1; i >= 0; i--) {
-          const key = window.localStorage.key(i);
-          if (key && key.startsWith('heal_clicks_')) {
-            window.localStorage.removeItem(key);
-          }
-        }
-      } catch(e) {}
-    }
+    window.autoDiscordHealClicks = 0;
+    window.autoDiscordLastLobbyId = "";
     console.log('AutoDiscord: Đã reset bộ nhớ làm vườn & hồi hp khi khởi động bot.');
 
     window.botInterval = setInterval(runBot, window.autoDiscordDelayTime);
@@ -973,7 +973,7 @@
           running: !!window.autoDiscordBotRunning,
           gardenStatus: getGardenStatusText(),
           debugLogs: debugLogs,
-          version: 34
+          version: 36
         }, '*');
       }
     } catch(e) {
