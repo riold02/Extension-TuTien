@@ -39,6 +39,21 @@
         try {
           logs = JSON.parse(safeLocalStorage.getItem('garden_debug_logs') || '[]');
         } catch(e) {}
+        
+        // Tránh log trùng lặp liên tiếp để không làm tràn khung hiển thị
+        if (logs.length > 0) {
+          const lastLog = logs[logs.length - 1];
+          // Trích xuất phần nội dung bằng cách loại bỏ timestamp ở đầu, ví dụ: [12:34:56]
+          const lastContent = lastLog.replace(/^\[\d{2}:\d{2}:\d{2}\]\s*/, '');
+          if (lastContent === msg) {
+            // Vẫn in ra console của trình duyệt để nhà phát triển xem
+            try {
+              window.console.log(...args);
+            } catch(e) {}
+            return;
+          }
+        }
+        
         logs.push(`[${new Date().toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit', second:'2-digit'})}] ${msg}`);
         if (logs.length > 8) logs.shift();
         try {
@@ -61,7 +76,8 @@
       autoGarden: window.autoDiscordAutoGarden !== undefined ? window.autoDiscordAutoGarden : false,
       gardenAoE: window.autoDiscordGardenAoE !== undefined ? window.autoDiscordGardenAoE : false,
       delayTime: window.autoDiscordDelayTime || 2000,
-      cooldownTime: window.autoDiscordCooldownTime || 10000
+      cooldownTime: window.autoDiscordCooldownTime || 10000,
+      minPlayers: window.autoDiscordMinPlayers !== undefined ? window.autoDiscordMinPlayers : 1
     };
   }
 
@@ -72,6 +88,7 @@
     window.autoDiscordGardenAoE = !!config.gardenAoE;
     window.autoDiscordDelayTime = parseInt(config.delayTime, 10) || 2000;
     window.autoDiscordCooldownTime = parseInt(config.cooldownTime, 10) || 10000;
+    window.autoDiscordMinPlayers = parseInt(config.minPlayers, 10) || 1;
     window.lastClickedTime = window.lastClickedTime || 0;
     window.lastHealedMsgId = window.lastHealedMsgId || null;
   }
@@ -90,11 +107,11 @@
       const config = getState();
       const now = Date.now();
       
-      console.log(`AutoDiscord runBot: delay=${config.delayTime}ms cooldown=${config.cooldownTime}ms autoHeal=${config.autoHeal} autoGarden=${config.autoGarden}`);
+      window.console.log(`AutoDiscord runBot: delay=${config.delayTime}ms cooldown=${config.cooldownTime}ms autoHeal=${config.autoHeal} autoGarden=${config.autoGarden}`);
       
       // Áp dụng cooldownTime chung cho cả làm vườn và bí cảnh để bot hoạt động thong thả, an toàn
       if (now - window.lastClickedTime < config.cooldownTime) {
-        console.log('AutoDiscord: đang đợi cooldown', now - window.lastClickedTime, 'ms');
+        window.console.log('AutoDiscord: đang đợi cooldown', now - window.lastClickedTime, 'ms');
         return;
       }
 
@@ -119,7 +136,7 @@
         messages = Array.from(document.querySelectorAll('[class*="messageListItem"]'));
       }
       if (messages.length === 0) {
-        console.log('AutoDiscord: không tìm thấy tin nhắn phù hợp để quét.');
+        window.console.log('AutoDiscord: không tìm thấy tin nhắn phù hợp để quét.');
         return;
       }
 
@@ -145,11 +162,131 @@
         return !EXCLUDES.some((ex) => text.includes(ex));
       });
       if (buttons.length === 0) {
-        console.log('AutoDiscord: không tìm thấy nút hợp lệ sau khi lọc exclude.');
+        window.console.log('AutoDiscord: không tìm thấy nút hợp lệ sau khi lọc exclude.');
         return;
       }
 
       buttons = buttons.reverse();
+
+      // Kiểm tra xem có đang ở màn hình sảnh chờ (Lobby) hay không
+      let isLobby = false;
+      let lobbyMsg = null;
+      if (config.autoBiCanh || config.autoHeal) {
+        // Tìm tin nhắn mới nhất trong 2 tin nhắn gần đây có chứa nút bấm
+        let activeMsgWithButtons = null;
+        for (let i = recentMessages.length - 1; i >= 0; i--) {
+          const msg = recentMessages[i];
+          if (msg.querySelectorAll('button').length > 0) {
+            activeMsgWithButtons = msg;
+            break;
+          }
+        }
+        if (activeMsgWithButtons) {
+          const text = activeMsgWithButtons.innerText || "";
+          if (text.match(/(?:đội ngũ|thành viên|số người|phòng|đội|đội hình|lobby|nhóm)\s*[:(]?\s*(\d+)\s*\/\s*(\d+)/i)) {
+            isLobby = true;
+            lobbyMsg = activeMsgWithButtons;
+          }
+        }
+      }
+
+      if (isLobby) {
+        let lobbyMsgId = 'unknown_lobby';
+        if (lobbyMsg) {
+          lobbyMsgId = lobbyMsg.id || lobbyMsg.getAttribute('data-list-item-id') || 'unknown_lobby';
+        }
+
+        // 1. Thực hiện Hồi máu nếu được bật
+        if (config.autoHeal) {
+          const hasHeal = buttons.find((b) => b.innerText && b.innerText.toLowerCase().trim() === 'hồi toàn đội');
+          if (hasHeal) {
+            if (window.localStorage) {
+              try {
+                for (let i = window.localStorage.length - 1; i >= 0; i--) {
+                  const key = window.localStorage.key(i);
+                  if (key && key.startsWith('heal_clicks_') && key !== 'heal_clicks_' + lobbyMsgId) {
+                    window.localStorage.removeItem(key);
+                  }
+                }
+              } catch(e) {}
+            }
+
+            const clicksStr = safeLocalStorage.getItem('heal_clicks_' + lobbyMsgId);
+            const clicks = clicksStr ? parseInt(clicksStr, 10) : 0;
+
+            if (clicks < 3) {
+              safeLocalStorage.setItem('heal_clicks_' + lobbyMsgId, (clicks + 1).toString());
+              const statusMsg = `Bí Cảnh: Bấm Hồi Toàn Đội lần ${clicks + 1}/3...`;
+              safeLocalStorage.setItem('bicanh_status_text', statusMsg);
+              console.log(`AutoDiscord: ${statusMsg}`);
+              
+              window.lastClickedTime = Date.now();
+              hasHeal.click();
+              return;
+            }
+          }
+        }
+
+        // 2. Kiểm tra bắt đầu phụ bản đối với chủ phòng
+        const startBtn = buttons.find((b) => {
+          const text = b.innerText.toLowerCase();
+          return text.includes('bắt đầu') || text.includes('khởi hành');
+        });
+
+        if (startBtn) {
+          // Nếu bật tự động hồi máu, phải đảm bảo đã bấm hồi máu đủ 3 lần trước khi bắt đầu!
+          if (config.autoHeal) {
+            const clicksStr = safeLocalStorage.getItem('heal_clicks_' + lobbyMsgId);
+            const clicks = clicksStr ? parseInt(clicksStr, 10) : 0;
+            if (clicks < 3) {
+              const statusMsg = `Bí Cảnh: Đang đợi hồi máu đủ 3 lần (Hiện tại: ${clicks}/3)...`;
+              safeLocalStorage.setItem('bicanh_status_text', statusMsg);
+              window.console.log(`AutoDiscord: ${statusMsg}`);
+              return; // Chờ hồi máu xong ở lượt sau
+            }
+          }
+
+          const lobbyText = lobbyMsg.innerText || "";
+          let currentPlayers = 1;
+          let match = lobbyText.match(/(?:đội ngũ|thành viên|số người|phòng|đội|đội hình|lobby|nhóm)\s*[:(]?\s*(\d+)\s*\/\s*(\d+)/i);
+          if (match) {
+            currentPlayers = parseInt(match[1], 10);
+            console.log(`AutoDiscord: Số người trong sảnh: ${currentPlayers}/${match[2]}`);
+          }
+
+          if (currentPlayers < config.minPlayers) {
+            const statusMsg = `Bí Cảnh: Chờ đủ ${config.minPlayers} người (Hiện tại: ${currentPlayers}/${match ? match[2] : '5'})`;
+            safeLocalStorage.setItem('bicanh_status_text', statusMsg);
+            window.console.log(`AutoDiscord: ${statusMsg}`);
+            return; // Chờ tiếp, không bấm gì cả
+          } else {
+            const statusMsg = `Bí Cảnh: Bấm Bắt đầu/Khởi hành (Đội: ${currentPlayers}/${match ? match[2] : '5'})`;
+            safeLocalStorage.setItem('bicanh_status_text', statusMsg);
+            console.log('✅ Bot vừa bấm nút:', startBtn.innerText);
+            window.lastClickedTime = Date.now();
+            startBtn.click();
+            return;
+          }
+        }
+
+        // 3. Nếu là thành viên (không thấy nút Bắt đầu) hoặc nút chưa xuất hiện
+        const statusMsg = `Bí Cảnh: Đang trong phòng chờ, đợi chủ phòng xuất phát...`;
+        safeLocalStorage.setItem('bicanh_status_text', statusMsg);
+        window.console.log(`AutoDiscord: ${statusMsg}`);
+        return;
+      } else {
+        // Giải phóng bộ đếm hồi máu khi không còn ở trong sảnh (ví dụ khi đang đi phó bản)
+        if (window.localStorage) {
+          try {
+            for (let i = window.localStorage.length - 1; i >= 0; i--) {
+              const key = window.localStorage.key(i);
+              if (key && key.startsWith('heal_clicks_')) {
+                window.localStorage.removeItem(key);
+              }
+            }
+          } catch(e) {}
+        }
+      }
 
       const SPECIAL_PRIORITIES = ['hứng lấy linh nhũ', 'để lại cho sinh linh khác', 'lắng nghe', 'phong ấn', 'cân bằng'];
       const PRIORITIES = ['sinh', 'hưu', 'cảnh', 'khai', 'đỗ'];
@@ -187,10 +324,14 @@
 
           if (clicks < 3) {
             safeLocalStorage.setItem('heal_clicks_' + msgId, (clicks + 1).toString());
-            console.log(`AutoDiscord: Bấm Hồi Toàn Đội lần thứ ${clicks + 1} cho tin nhắn ${msgId}`);
+            const statusMsg = `Bí Cảnh: Bấm Hồi Toàn Đội lần ${clicks + 1}/3...`;
+            safeLocalStorage.setItem('bicanh_status_text', statusMsg);
+            console.log(`AutoDiscord: ${statusMsg}`);
             targetButton = hasHeal;
           } else {
-            console.log(`AutoDiscord: Đã bấm Hồi Toàn Đội đủ 3 lần cho tin nhắn ${msgId}. Tiến hành chuẩn bị bắt đầu.`);
+            const statusMsg = `Bí Cảnh: Đã bấm Hồi Toàn Đội đủ 3 lần, chuẩn bị xuất phát...`;
+            safeLocalStorage.setItem('bicanh_status_text', statusMsg);
+            console.log(`AutoDiscord: ${statusMsg}`);
           }
         }
       }
@@ -245,11 +386,46 @@
       }
 
       if (targetButton) {
+        const textLower = targetButton.innerText.toLowerCase();
+        
+        if (config.autoBiCanh || config.autoHeal) {
+          if (textLower.includes('[') && textLower.includes(']')) {
+            safeLocalStorage.setItem('bicanh_status_text', `Bí Cảnh: Di chuyển cửa ${targetButton.innerText}`);
+          } else if (textLower.includes('chiến tiếp')) {
+            safeLocalStorage.setItem('bicanh_status_text', 'Bí Cảnh: Bấm Chiến tiếp...');
+          } else if (textLower.includes('tiếp tục')) {
+            safeLocalStorage.setItem('bicanh_status_text', 'Bí Cảnh: Bấm Tiếp tục khám phá...');
+          }
+        }
+
+        if (textLower.includes('bắt đầu') || textLower.includes('khởi hành')) {
+          const msgContainer = targetButton.closest('[class*="messageListItem"], [id^="chat-messages-"], li');
+          const latestMsgText = msgContainer ? (msgContainer.innerText || "") : "";
+          let currentPlayers = 1;
+          let match = latestMsgText.match(/(?:đội ngũ|thành viên|số người|phòng|đội|đội hình|lobby|nhóm)\s*[:(]?\s*(\d+)\s*\/\s*(\d+)/i);
+          if (match) {
+            currentPlayers = parseInt(match[1], 10);
+            console.log(`AutoDiscord: Số người trong sảnh: ${currentPlayers}/${match[2]}`);
+          } else {
+            console.log('AutoDiscord: Không nhận diện được số người trong sảnh bằng tiền tố. Mặc định là 1.');
+          }
+
+          if (currentPlayers < config.minPlayers) {
+            const statusMsg = `Bí Cảnh: Chờ đủ ${config.minPlayers} người (Hiện tại: ${currentPlayers}/${match ? match[2] : '5'})`;
+            safeLocalStorage.setItem('bicanh_status_text', statusMsg);
+            console.log(`AutoDiscord: ${statusMsg}`);
+            return;
+          } else {
+            const statusMsg = `Bí Cảnh: Bấm Bắt đầu/Khởi hành (Đội: ${currentPlayers}/${match ? match[2] : '5'})`;
+            safeLocalStorage.setItem('bicanh_status_text', statusMsg);
+          }
+        }
+
         console.log('✅ Bot vừa bấm nút:', targetButton.innerText);
         window.lastClickedTime = Date.now();
         targetButton.click();
       } else {
-        console.log('AutoDiscord: không tìm thấy nút để bấm trong lần quét này.');
+        window.console.log('AutoDiscord: không tìm thấy nút để bấm trong lần quét này.');
       }
     } catch (e) {
       console.log('Lỗi thực thi bot:', e.message);
@@ -290,22 +466,43 @@
 
   function getGardenStatusText() {
     try {
-      if (!window.autoDiscordAutoGarden) {
-        return "Chưa bật làm vườn";
+      if (!window.autoDiscordBotRunning) {
+        return "";
       }
-      if (isGardenCooldownActive()) {
-        const lastGardenTime = safeLocalStorage.getItem('lastGardenTime');
-        if (lastGardenTime) {
-          const elapsed = Date.now() - parseInt(lastGardenTime, 10);
-          const remaining = 1 * 60 * 1000 - elapsed;
-          if (remaining > 0) {
-            const minutes = Math.floor(remaining / 60000);
-            const seconds = Math.floor((remaining % 60000) / 1000);
-            return `Chờ cooldown: ${minutes}ph ${seconds}s`;
+      
+      const statusParts = [];
+      
+      // 1. Trạng thái Auto làm vườn
+      if (window.autoDiscordAutoGarden) {
+        if (isGardenCooldownActive()) {
+          const lastGardenTime = safeLocalStorage.getItem('lastGardenTime');
+          if (lastGardenTime) {
+            const elapsed = Date.now() - parseInt(lastGardenTime, 10);
+            const remaining = 1 * 60 * 1000 - elapsed;
+            if (remaining > 0) {
+              const minutes = Math.floor(remaining / 60000);
+              const seconds = Math.floor((remaining % 60000) / 1000);
+              statusParts.push(`Làm vườn: Chờ CD ${minutes}ph ${seconds}s`);
+            }
           }
+        } else {
+          statusParts.push(safeLocalStorage.getItem('garden_status_text') || 'Đang chuẩn bị làm vườn...');
         }
       }
-      return safeLocalStorage.getItem('garden_status_text') || 'Đang chuẩn bị làm vườn...';
+      
+      // 2. Trạng thái Bí cảnh / Hồi máu
+      if (window.autoDiscordAutoBiCanh || window.autoDiscordAutoHeal) {
+        const bicanhStatus = safeLocalStorage.getItem('bicanh_status_text');
+        if (bicanhStatus) {
+          statusParts.push(bicanhStatus);
+        }
+      }
+      
+      if (statusParts.length > 0) {
+        return statusParts.join(' | ');
+      }
+      
+      return "Đang chạy, chờ hoạt động...";
     } catch(e) {
       window.console.error('inject.js: getGardenStatusText error:', e);
       return "Lỗi đọc trạng thái";
@@ -768,6 +965,7 @@
     safeLocalStorage.removeItem('lastGardenTime');
     safeLocalStorage.removeItem('garden_status_text');
     safeLocalStorage.removeItem('garden_debug_logs');
+    safeLocalStorage.removeItem('bicanh_status_text');
     if (window.localStorage) {
       try {
         for (let i = window.localStorage.length - 1; i >= 0; i--) {
@@ -808,6 +1006,13 @@
           console.log('Lỗi dừng bot:', e.message);
           window.console.error('inject.js: Lỗi dừng bot:', e);
         }
+      } else if (event.data.action === 'update-config') {
+        try {
+          window.console.log('inject.js: Nhận lệnh cập nhật cấu hình thời gian thực...');
+          setState(event.data.config || {});
+        } catch(e) {
+          window.console.error('inject.js: Lỗi cập nhật cấu hình:', e);
+        }
       } else if (event.data.action === 'status-request') {
         let debugLogs = '[]';
         try {
@@ -822,7 +1027,7 @@
           running: !!window.autoDiscordBotRunning,
           gardenStatus: getGardenStatusText(),
           debugLogs: debugLogs,
-          version: 24
+          version: 33
         }, '*');
       }
     } catch(e) {

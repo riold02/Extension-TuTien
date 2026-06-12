@@ -1,9 +1,10 @@
-const CURRENT_VERSION = 24;
+const CURRENT_VERSION = 33;
 
 const autoHealInput = document.getElementById('autoHeal');
 const autoBiCanhInput = document.getElementById('autoBiCanh');
 const autoGardenInput = document.getElementById('autoGarden');
 const gardenAoEInput = document.getElementById('gardenAoE');
+const minPlayersInput = document.getElementById('minPlayers');
 const delayInput = document.getElementById('delayTime');
 const cooldownInput = document.getElementById('cooldownTime');
 const startStopBtn = document.getElementById('startStopBtn');
@@ -17,7 +18,8 @@ const DEFAULT_SETTINGS = {
   autoGarden: false,
   gardenAoE: false,
   delayTime: 2000,
-  cooldownTime: 10000
+  cooldownTime: 10000,
+  minPlayers: 1
 };
 
 function updateStatusText(running, gardenStatus = '', debugLogs = '[]') {
@@ -62,6 +64,15 @@ function toggleGardenOptions() {
   }
 }
 
+function toggleBiCanhOptions() {
+  const biCanhGroup = document.getElementById('biCanhGroup');
+  if (autoBiCanhInput.checked) {
+    biCanhGroup.style.display = 'grid';
+  } else {
+    biCanhGroup.style.display = 'none';
+  }
+}
+
 function getConfig() {
   return {
     autoHeal: autoHealInput.checked,
@@ -69,12 +80,25 @@ function getConfig() {
     autoGarden: autoGardenInput.checked,
     gardenAoE: gardenAoEInput.checked,
     delayTime: Number(delayInput.value) || DEFAULT_SETTINGS.delayTime,
-    cooldownTime: Number(cooldownInput.value) || DEFAULT_SETTINGS.cooldownTime
+    cooldownTime: Number(cooldownInput.value) || DEFAULT_SETTINGS.cooldownTime,
+    minPlayers: Number(minPlayersInput.value) || DEFAULT_SETTINGS.minPlayers
   };
 }
 
-function saveConfig() {
-  chrome.storage.local.set(getConfig());
+async function saveConfig() {
+  const config = getConfig();
+  chrome.storage.local.set(config);
+  try {
+    const tab = await findDiscordTab();
+    if (tab) {
+      await ensureContentScript(tab.id);
+      await chrome.tabs.sendMessage(tab.id, {
+        source: 'popup',
+        action: 'update-config',
+        config
+      });
+    }
+  } catch(e) {}
 }
 
 async function ensureContentScript(tabId) {
@@ -172,9 +196,11 @@ async function loadSettings() {
     autoBiCanhInput.checked = result.autoBiCanh;
     autoGardenInput.checked = result.autoGarden;
     gardenAoEInput.checked = result.gardenAoE;
+    minPlayersInput.value = result.minPlayers;
     delayInput.value = result.delayTime;
     cooldownInput.value = result.cooldownTime;
     toggleGardenOptions();
+    toggleBiCanhOptions();
     const status = await getRunningStatus();
     if (status.error) {
       statusText.textContent = 'Lỗi: ' + status.error;
@@ -194,12 +220,16 @@ startStopBtn.addEventListener('click', async () => {
 });
 
 autoHealInput.addEventListener('change', saveConfig);
-autoBiCanhInput.addEventListener('change', saveConfig);
+autoBiCanhInput.addEventListener('change', () => {
+  toggleBiCanhOptions();
+  saveConfig();
+});
 autoGardenInput.addEventListener('change', () => {
   toggleGardenOptions();
   saveConfig();
 });
 gardenAoEInput.addEventListener('change', saveConfig);
+minPlayersInput.addEventListener('change', saveConfig);
 delayInput.addEventListener('change', saveConfig);
 cooldownInput.addEventListener('change', saveConfig);
 

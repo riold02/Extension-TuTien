@@ -177,3 +177,47 @@ input[type="number"]:focus {
 .log-section {
   display: none !important;
 }
+
+.log-header {
+  font-size: 12px;
+  font-weight: 600;
+  color: #94a3b8;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.console-box {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 10px;
+  min-height: 120px;
+  max-height: 160px;
+  overflow-y: auto;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #cbd5e1;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.console-empty {
+  color: #64748b;
+  text-align: center;
+  margin-top: 45px;
+  font-style: italic;
+}
+
+.log-line {
+  margin-bottom: 4px;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.04);
+  padding-bottom: 4px;
+  word-break: break-all;
+  white-space: pre-wrap;
+}
+
+.log-line:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
