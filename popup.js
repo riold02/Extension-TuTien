@@ -1,14 +1,16 @@
-const CURRENT_VERSION = 36;
+const CURRENT_VERSION = 48;
 
 const autoHealInput = document.getElementById('autoHeal');
 const autoBiCanhInput = document.getElementById('autoBiCanh');
 const autoGardenInput = document.getElementById('autoGarden');
 const gardenAoEInput = document.getElementById('gardenAoE');
+const autoWorldBossInput = document.getElementById('autoWorldBoss');
 const minPlayersInput = document.getElementById('minPlayers');
 const delayInput = document.getElementById('delayTime');
 const cooldownInput = document.getElementById('cooldownTime');
 const startStopBtn = document.getElementById('startStopBtn');
 const statusText = document.getElementById('statusText');
+const statusIndicator = document.getElementById('statusIndicator');
 const gardenStatusText = document.getElementById('gardenStatusText');
 const debugLogsContainer = document.getElementById('debugLogs');
 
@@ -17,6 +19,7 @@ const DEFAULT_SETTINGS = {
   autoBiCanh: true,
   autoGarden: false,
   gardenAoE: false,
+  autoWorldBoss: false,
   delayTime: 2000,
   cooldownTime: 10000,
   minPlayers: 1
@@ -24,6 +27,11 @@ const DEFAULT_SETTINGS = {
 
 function updateStatusText(running, gardenStatus = '', debugLogs = '[]') {
   statusText.textContent = running ? 'Đang chạy' : 'Đang dừng';
+  if (running) {
+    statusIndicator.classList.add('active');
+  } else {
+    statusIndicator.classList.remove('active');
+  }
   startStopBtn.textContent = running ? 'Dừng' : 'Bắt đầu';
   startStopBtn.dataset.mode = running ? 'stop' : 'start';
   if (running && gardenStatus) {
@@ -79,6 +87,7 @@ function getConfig() {
     autoBiCanh: autoBiCanhInput.checked,
     autoGarden: autoGardenInput.checked,
     gardenAoE: gardenAoEInput.checked,
+    autoWorldBoss: autoWorldBossInput.checked,
     delayTime: Number(delayInput.value) || DEFAULT_SETTINGS.delayTime,
     cooldownTime: Number(cooldownInput.value) || DEFAULT_SETTINGS.cooldownTime,
     minPlayers: Number(minPlayersInput.value) || DEFAULT_SETTINGS.minPlayers
@@ -196,6 +205,7 @@ async function loadSettings() {
     autoBiCanhInput.checked = result.autoBiCanh;
     autoGardenInput.checked = result.autoGarden;
     gardenAoEInput.checked = result.gardenAoE;
+    autoWorldBossInput.checked = result.autoWorldBoss;
     minPlayersInput.value = result.minPlayers;
     delayInput.value = result.delayTime;
     cooldownInput.value = result.cooldownTime;
@@ -229,9 +239,25 @@ autoGardenInput.addEventListener('change', () => {
   saveConfig();
 });
 gardenAoEInput.addEventListener('change', saveConfig);
+autoWorldBossInput.addEventListener('change', saveConfig);
 minPlayersInput.addEventListener('change', saveConfig);
 delayInput.addEventListener('change', saveConfig);
 cooldownInput.addEventListener('change', saveConfig);
+
+// Advanced toggle Accordion
+const advancedToggle = document.getElementById('advancedToggle');
+const advancedPanel = document.getElementById('advancedPanel');
+const toggleIcon = document.getElementById('toggleIcon');
+
+advancedToggle.addEventListener('click', () => {
+  const isOpen = advancedPanel.style.display !== 'none';
+  advancedPanel.style.display = isOpen ? 'none' : 'block';
+  if (isOpen) {
+    toggleIcon.classList.remove('open');
+  } else {
+    toggleIcon.classList.add('open');
+  }
+});
 
 document.addEventListener('DOMContentLoaded', loadSettings);
 
@@ -243,6 +269,7 @@ setInterval(async () => {
     const status = await getRunningStatus();
     if (status.error) {
       statusText.textContent = 'Lỗi: ' + status.error;
+      statusIndicator.classList.remove('active');
     } else {
       updateStatusText(status.running, status.gardenStatus, status.debugLogs);
     }

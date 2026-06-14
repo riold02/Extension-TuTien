@@ -16,6 +16,8 @@
   window.__autoDiscordBotInjected = true;
   window.autoDiscordHealClicks = 0;
   window.autoDiscordLastLobbyId = "";
+  window.autoDiscordBossHealed = false;
+  window.autoDiscordLastBossAttackTime = 0;
   const safeLocalStorage = (() => {
     try {
       const testKey = '__test_local_storage_accessibility__';
@@ -77,6 +79,7 @@
       autoBiCanh: window.autoDiscordAutoBiCanh !== undefined ? window.autoDiscordAutoBiCanh : true,
       autoGarden: window.autoDiscordAutoGarden !== undefined ? window.autoDiscordAutoGarden : false,
       gardenAoE: window.autoDiscordGardenAoE !== undefined ? window.autoDiscordGardenAoE : false,
+      autoWorldBoss: window.autoDiscordAutoWorldBoss !== undefined ? window.autoDiscordAutoWorldBoss : false,
       delayTime: window.autoDiscordDelayTime || 2000,
       cooldownTime: window.autoDiscordCooldownTime || 10000,
       minPlayers: window.autoDiscordMinPlayers !== undefined ? window.autoDiscordMinPlayers : 1
@@ -88,6 +91,7 @@
     window.autoDiscordAutoBiCanh = config.autoBiCanh !== undefined ? !!config.autoBiCanh : true;
     window.autoDiscordAutoGarden = !!config.autoGarden;
     window.autoDiscordGardenAoE = !!config.gardenAoE;
+    window.autoDiscordAutoWorldBoss = !!config.autoWorldBoss;
     window.autoDiscordDelayTime = parseInt(config.delayTime, 10) || 2000;
     window.autoDiscordCooldownTime = parseInt(config.cooldownTime, 10) || 10000;
     window.autoDiscordMinPlayers = parseInt(config.minPlayers, 10) || 1;
@@ -109,8 +113,40 @@
       const config = getState();
       const now = Date.now();
       
-      window.console.log(`AutoDiscord runBot: delay=${config.delayTime}ms cooldown=${config.cooldownTime}ms autoHeal=${config.autoHeal} autoGarden=${config.autoGarden}`);
+      const dismissNodes = Array.from(document.querySelectorAll('div[role="button"], a, span, button')).filter((el) => {
+        if (!el.innerText) return false;
+        const text = el.innerText.normalize('NFC').trim().toLowerCase();
+        if (text !== 'bỏ qua tin nhắn' && text !== 'dismiss message') return false;
+
+        // Tránh ẩn nhầm các tin nhắn game quan trọng (như Trung tâm hoạt động, Boss thế giới...)
+        // Bằng cách kiểm tra xem tin nhắn cha có chứa nút bấm chơi game nào khác không
+        const messageContainer = el.closest('li[id^="chat-messages-"]') || el.closest('[class*="messageListItem"]');
+        if (messageContainer) {
+          const gameButtons = Array.from(messageContainer.querySelectorAll('button')).filter(btn => {
+            if (btn === el) return false;
+            const btnText = (btn.innerText || "").normalize('NFC').toLowerCase().trim();
+            return btnText !== 'bỏ qua tin nhắn' && btnText !== 'dismiss message';
+          });
+          if (gameButtons.length > 0) {
+            // Có nút bấm chơi game -> Không được click bỏ qua tin nhắn này!
+            return false;
+          }
+        }
+        return true;
+      });
+      if (dismissNodes.length > 0) {
+        dismissNodes.forEach((n) => n.click());
+        console.log('🧹 Đã dọn dẹp các tin báo lỗi hệ thống!');
+      }
+
+      window.console.log(`AutoDiscord runBot: delay=${config.delayTime}ms cooldown=${config.cooldownTime}ms autoHeal=${config.autoHeal} autoGarden=${config.autoGarden} autoWorldBoss=${config.autoWorldBoss}`);
       
+      if (config.autoWorldBoss) {
+        if (handleWorldBoss(config)) {
+          return;
+        }
+      }
+
       // Áp dụng cooldownTime chung cho cả làm vườn và bí cảnh để bot hoạt động thong thả, an toàn
       if (now - window.lastClickedTime < config.cooldownTime) {
         window.console.log('AutoDiscord: đang đợi cooldown', now - window.lastClickedTime, 'ms');
@@ -121,16 +157,6 @@
         if (handleGardening(config)) {
           return;
         }
-      }
-
-      const dismissNodes = Array.from(document.querySelectorAll('div[role="button"], a, span')).filter((el) => {
-        if (!el.innerText) return false;
-        const text = el.innerText.trim().toLowerCase();
-        return text === 'bỏ qua tin nhắn' || text === 'dismiss message';
-      });
-      if (dismissNodes.length > 0) {
-        dismissNodes.forEach((n) => n.click());
-        console.log('🧹 Đã dọn dẹp các tin báo lỗi hệ thống!');
       }
 
       let messages = Array.from(document.querySelectorAll('li[id^="chat-messages-"]'));
@@ -149,19 +175,21 @@
       });
 
       const EXCLUDES = [
-        'rời', 'khóa phòng', 'làm mới', 'sẵn sàng', 'nghỉ',
+        'rời', 'rời sảnh', 'rời nhóm', 'rời phòng', 'rời đội',
+        'khóa phòng', 'làm mới', 'sẵn sàng', 'nghỉ',
         'mời', 'trang chủ', 'kết thúc', 'tạo phòng', 'quay lại',
         'bất chấp', 'phá trận', 'cưỡng ép',
         'hành trang', 'tầm bảo', 'động phủ', 'lịch luyện', 'bí cảnh',
         'hoạt động', 'nhiệm vụ', 'cửa hàng', 'vấn đỉnh', 'vạn bảo lâu',
         'vạn thú các', 'chế tạo', 'bảng xếp hạng', 'hảo hữu', 'thư viện',
-        'tông môn', 'đỗ phường', 'đạo quy', 'phúc lợi', 'chat thế giới', 'thông báo'
+        'tông môn', 'đỗ phường', 'đạo quy', 'phúc lợi', 'chat thế giới', 'thông báo',
+        'xếp hạng', 'hồi máu'
       ];
 
       buttons = buttons.filter((b) => {
         if (b.disabled || !b.innerText) return false;
-        const text = b.innerText.toLowerCase().trim();
-        return !EXCLUDES.some((ex) => text.includes(ex));
+        const text = b.innerText.normalize('NFC').toLowerCase().trim();
+        return !EXCLUDES.some((ex) => text.includes(ex.normalize('NFC')));
       });
       if (buttons.length === 0) {
         window.console.log('AutoDiscord: không tìm thấy nút hợp lệ sau khi lọc exclude.');
@@ -179,22 +207,26 @@
           const msg = recentMessages[i];
           const msgButtons = Array.from(msg.querySelectorAll('button'));
           if (msgButtons.length > 0) {
-            const text = msg.innerText || "";
+            const text = (msg.innerText || "").normalize('NFC');
             // Cách 1: Khớp qua text của tin nhắn sảnh
             const hasLobbyText = text.match(/(?:đội ngũ|thành viên|số người|phòng|đội|đội hình|lobby|nhóm)\s*[:(]?\s*(\d+)\s*\/\s*(\d+)/i);
             
             // Cách 2: Khớp qua sự xuất hiện của các nút đặc trưng trong sảnh chờ
             const hasLobbyButtons = msgButtons.some(b => {
               if (!b.innerText) return false;
-              const btnText = b.innerText.toLowerCase().trim();
+              const btnText = b.innerText.normalize('NFC').toLowerCase().trim();
               return btnText.includes('hồi toàn đội') || 
                      btnText.includes('khóa phòng') || 
                      btnText.includes('mở phòng') || 
                      btnText.includes('rời phòng') || 
                      btnText.includes('rời nhóm') || 
+                     btnText.includes('rời sảnh') || 
                      btnText.includes('làm mới') || 
                      btnText.includes('bắt đầu') || 
-                     btnText.includes('khởi hành');
+                     btnText.includes('khởi hành') ||
+                     btnText.includes('chưa xuất hiện') ||
+                     btnText.includes('tấn công') ||
+                     btnText.includes('hồi máu');
             });
 
             if (hasLobbyText || hasLobbyButtons) {
@@ -905,6 +937,148 @@
     return false;
   }
 
+  function handleWorldBoss(config) {
+    try {
+      const now = Date.now();
+      window.autoDiscordBossHealed = window.autoDiscordBossHealed !== undefined ? window.autoDiscordBossHealed : false;
+      window.autoDiscordLastBossAttackTime = window.autoDiscordLastBossAttackTime || 0;
+
+      let messages = Array.from(document.querySelectorAll('li[id^="chat-messages-"]'));
+      if (messages.length === 0) {
+        messages = Array.from(document.querySelectorAll('[class*="messageListItem"]'));
+      }
+      if (messages.length === 0) return false;
+
+      const recentMessages = messages.slice(-2);
+      let activeMsg = null;
+      for (let i = recentMessages.length - 1; i >= 0; i--) {
+        if (recentMessages[i].querySelectorAll('button').length > 0) {
+          activeMsg = recentMessages[i];
+          break;
+        }
+      }
+      if (!activeMsg) return false;
+
+      const text = (activeMsg.innerText || "").normalize('NFC').toLowerCase();
+      const buttons = Array.from(activeMsg.querySelectorAll('button'));
+      if (buttons.length === 0) return false;
+
+      const hasTanCong = buttons.find(b => b.innerText && b.innerText.normalize('NFC').toLowerCase().includes('tấn công'));
+      const hasChuaXuatHien = buttons.find(b => b.innerText && b.innerText.normalize('NFC').toLowerCase().includes('chưa xuất hiện'));
+      const hasHoiMau = buttons.find(b => b.innerText && b.innerText.normalize('NFC').toLowerCase().includes('hồi máu'));
+      const hasBoQua = buttons.find(b => {
+        if (!b.innerText) return false;
+        const btnText = b.innerText.normalize('NFC').toLowerCase();
+        return btnText.includes('bỏ qua') || btnText.includes('kết thúc nhanh');
+      });
+      const hasTroLaiSanh = buttons.find(b => {
+        if (!b.innerText) return false;
+        const btnText = b.innerText.normalize('NFC').toLowerCase();
+        return (btnText.includes('trở lại sảnh') || btnText.includes('quay lại sảnh')) && 
+               !btnText.includes('rời sảnh');
+      });
+
+      const isWorldBossLobby = text.includes('sảnh chờ boss thế giới') || hasTanCong || hasChuaXuatHien || hasHoiMau;
+      const isWorldBossFight = hasBoQua;
+      const isWorldBossResult = !isWorldBossLobby && hasTroLaiSanh;
+
+      if (!isWorldBossLobby && !isWorldBossFight && !isWorldBossResult) {
+        return false;
+      }
+
+      // --- 1. KIỂM TRA COOLDOWN BẤM ---
+      // Nếu cooldownTime được cấu hình < 5000ms thì dùng nó, còn mặc định 10000ms hoặc lớn hơn thì dùng 2500ms cho World Boss
+      const wbCooldown = (config && config.cooldownTime && config.cooldownTime < 5000) ? config.cooldownTime : 2500;
+      if (now - window.lastClickedTime < wbCooldown) {
+        return true;
+      }
+
+      // --- 2. KIỂM TRA TRÙNG LẶP TIN NHẮN CHƯA CẬP NHẬT ---
+      const msgId = activeMsg.id || activeMsg.getAttribute('data-list-item-id') || 'unknown_boss_msg';
+      const btnSig = buttons.map(b => b.innerText ? b.innerText.normalize('NFC').trim() : '').join('|');
+      const sig = text + '||' + btnSig;
+
+      if (window.autoDiscordLastMsgId === msgId && 
+          window.autoDiscordLastMsgSig === sig && 
+          (now - window.lastClickedTime < 5000)) {
+        // Tin nhắn chưa có cập nhật nội dung hay nút bấm mới, đợi thêm để tránh bấm trùng
+        return true;
+      }
+
+      const recordClick = (btnText) => {
+        window.lastClickedTime = Date.now();
+        window.autoDiscordLastMsgId = msgId;
+        window.autoDiscordLastMsgSig = sig;
+        console.log(`AutoWorldBoss: Đã click nút [${btnText}], lưu trạng thái.`);
+      };
+
+      // --- CASE 1: BATTLE SCREEN ---
+      if (isWorldBossFight && hasBoQua) {
+        if (!hasBoQua.disabled) {
+          console.log('AutoWorldBoss: Phát hiện trận đấu, bấm "Bỏ Qua".');
+          safeLocalStorage.setItem('bicanh_status_text', 'Boss Thế Giới: Bấm Bỏ qua...');
+          hasBoQua.click();
+          recordClick(hasBoQua.innerText);
+        }
+        return true;
+      }
+
+      // --- CASE 2: RESULT SCREEN ---
+      if (isWorldBossResult && hasTroLaiSanh) {
+        if (!hasTroLaiSanh.disabled) {
+          console.log('AutoWorldBoss: Trận đấu kết thúc, bấm "Trở Lại Sảnh".');
+          safeLocalStorage.setItem('bicanh_status_text', 'Boss Thế Giới: Bấm Trở lại sảnh...');
+          hasTroLaiSanh.click();
+          recordClick(hasTroLaiSanh.innerText);
+        }
+        return true;
+      }
+
+      // --- CASE 3: LOBBY SCREEN ---
+      if (isWorldBossLobby) {
+        if (!window.autoDiscordBossHealed && hasHoiMau) {
+          if (!hasHoiMau.disabled) {
+            console.log('AutoWorldBoss: Đang hồi máu chuẩn bị đánh boss...');
+            safeLocalStorage.setItem('bicanh_status_text', 'Boss Thế Giới: Bấm Hồi máu...');
+            window.autoDiscordBossHealed = true;
+            hasHoiMau.click();
+            recordClick(hasHoiMau.innerText);
+          }
+          return true;
+        }
+
+        if (hasTanCong) {
+          if (!hasTanCong.disabled) {
+            console.log('AutoWorldBoss: Tiến hành bấm "Tấn Công" Boss Thế Giới!');
+            safeLocalStorage.setItem('bicanh_status_text', 'Boss Thế Giới: Bấm Tấn công!');
+            window.autoDiscordBossHealed = false;
+            hasTanCong.click();
+            recordClick(hasTanCong.innerText);
+          }
+          return true;
+        }
+
+        if (hasChuaXuatHien) {
+          safeLocalStorage.setItem('bicanh_status_text', 'Boss Thế Giới: Đang chờ Boss xuất hiện...');
+          if (!window.autoDiscordBossHealed && hasHoiMau && !hasHoiMau.disabled) {
+            console.log('AutoWorldBoss: Tranh thủ hồi máu trong lúc chờ Boss...');
+            window.autoDiscordBossHealed = true;
+            hasHoiMau.click();
+            recordClick(hasHoiMau.innerText);
+          }
+          return true;
+        }
+
+        return true;
+      }
+
+      return false;
+    } catch (e) {
+      window.console.error('inject.js: Lỗi trong handleWorldBoss:', e);
+      return false;
+    }
+  }
+
   function startBot(config = {}) {
     setState(config);
     stopBot();
@@ -922,7 +1096,11 @@
     safeLocalStorage.removeItem('bicanh_status_text');
     window.autoDiscordHealClicks = 0;
     window.autoDiscordLastLobbyId = "";
-    console.log('AutoDiscord: Đã reset bộ nhớ làm vườn & hồi hp khi khởi động bot.');
+    window.autoDiscordBossHealed = false;
+    window.autoDiscordLastBossAttackTime = 0;
+    window.autoDiscordLastMsgId = "";
+    window.autoDiscordLastMsgSig = "";
+    console.log('AutoDiscord: Đã reset bộ nhớ làm vườn, hồi hp & chống spam boss khi khởi động bot.');
 
     window.botInterval = setInterval(runBot, window.autoDiscordDelayTime);
     window.autoDiscordBotRunning = true;
@@ -973,7 +1151,7 @@
           running: !!window.autoDiscordBotRunning,
           gardenStatus: getGardenStatusText(),
           debugLogs: debugLogs,
-          version: 36
+          version: 48
         }, '*');
       }
     } catch(e) {

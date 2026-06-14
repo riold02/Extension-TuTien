@@ -3,60 +3,87 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AutoDiscord Bot</title>
+  <title>Auto Tu Tiên</title>
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
   <div class="container">
     <h1>Auto Tu Tiên</h1>
-    <label class="switch">
-      <input type="checkbox" id="autoHeal" />
-      <span class="slider"></span>
-      <span class="label-text">Auto hồi máu</span>
-    </label>
-
-    <label class="switch">
-      <input type="checkbox" id="autoBiCanh" />
-      <span class="slider"></span>
-      <span class="label-text">Auto đi bí cảnh</span>
-    </label>
-
-    <div class="field-group" id="biCanhGroup" style="padding-left: 20px; display: none;">
-      <label for="minPlayers" class="label-text">Số người tối thiểu</label>
-      <input type="number" id="minPlayers" min="1" max="5" value="1" />
-    </div>
-
-    <label class="switch">
-      <input type="checkbox" id="autoGarden" />
-      <span class="slider"></span>
-      <span class="label-text">Auto làm vườn</span>
-    </label>
-
-    <label class="switch" id="gardenModeGroup" style="padding-left: 20px; display: none;">
-      <input type="checkbox" id="gardenAoE" />
-      <span class="slider"></span>
-      <span class="label-text">Chế độ AoE (Múc/Tưới/Bón/Sâu)</span>
-    </label>
-
-    <div class="field-group">
-      <label for="delayTime">Delay (ms)</label>
-      <input type="number" id="delayTime" min="500" step="100" />
-    </div>
-
-    <div class="field-group">
-      <label for="cooldownTime">Cooldown (ms)</label>
-      <input type="number" id="cooldownTime" min="1000" step="500" />
-    </div>
-
-    <button id="startStopBtn" class="action-button">Bắt đầu</button>
-    <div id="statusText" class="status">Đang dừng</div>
-    <div id="gardenStatusText" class="status" style="margin-top: 4px; font-weight: 500; color: #38bdf8;"></div>
     
-    <div class="log-section">
-      <div class="log-header">Nhật ký hoạt động</div>
-      <div id="debugLogs" class="console-box">
-        <div class="console-empty">Chưa có hoạt động nào được ghi nhận.</div>
+    <!-- Modern Status Panel -->
+    <div class="status-panel">
+      <div id="statusIndicator" class="status-dot"></div>
+      <span id="statusText">Đang dừng</span>
+    </div>
+    <div id="gardenStatusText" class="status-detail" style="display: none;"></div>
+
+    <!-- Switches List Group -->
+    <div class="switches-list">
+      <label class="switch">
+        <span class="label-text">Auto Hồi Máu</span>
+        <input type="checkbox" id="autoHeal" />
+        <span class="slider"></span>
+      </label>
+
+      <label class="switch">
+        <span class="label-text">Auto Bí Cảnh</span>
+        <input type="checkbox" id="autoBiCanh" />
+        <span class="slider"></span>
+      </label>
+
+      <div class="sub-group" id="biCanhGroup" style="display: none;">
+        <div class="field-row">
+          <label for="minPlayers" class="sub-label-text">Số người tối thiểu</label>
+          <input type="number" id="minPlayers" min="1" max="5" value="1" />
+        </div>
       </div>
+
+      <label class="switch">
+        <span class="label-text">Auto Boss Thế Giới</span>
+        <input type="checkbox" id="autoWorldBoss" />
+        <span class="slider"></span>
+      </label>
+
+      <label class="switch">
+        <span class="label-text">Auto Làm Vườn</span>
+        <input type="checkbox" id="autoGarden" />
+        <span class="slider"></span>
+      </label>
+
+      <div class="sub-group" id="gardenModeGroup" style="display: none;">
+        <label class="switch sub-switch">
+          <span class="label-text">Chế độ AoE diện rộng</span>
+          <input type="checkbox" id="gardenAoE" />
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Advanced Settings Toggle Accordion -->
+    <div class="advanced-toggle" id="advancedToggle">
+      <span>Cấu hình nâng cao</span>
+      <span id="toggleIcon" class="toggle-icon">▼</span>
+    </div>
+
+    <!-- Collapsible Advanced Settings -->
+    <div class="advanced-panel" id="advancedPanel" style="display: none;">
+      <div class="field-row">
+        <label for="delayTime">Độ trễ quét (ms)</label>
+        <input type="number" id="delayTime" min="500" step="100" />
+      </div>
+
+      <div class="field-row">
+        <label for="cooldownTime">Chờ thao tác (ms)</label>
+        <input type="number" id="cooldownTime" min="1000" step="500" />
+      </div>
+    </div>
+
+    <!-- Main Action Button -->
+    <button id="startStopBtn" class="action-button">Bắt đầu</button>
+    
+    <!-- Hidden Log Section kept for compatibility -->
+    <div class="log-section">
+      <div id="debugLogs"></div>
     </div>
   </div>
   <script src="popup.js"></script>
